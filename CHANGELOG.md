@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.3
 
 ### Fixed
 - Date handling no longer depends on the `moment` package's type declarations: a small typed wrapper
