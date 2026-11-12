@@ -168,7 +168,7 @@ export class TrainingModal extends BjjModal {
 		new Setting(el)
 			.setName(t("training.intensity"))
 			.setDesc(t("training.intensityDesc"))
-			.addSlider((s) => s.setLimits(1, 10, 1).setValue(v.intensity).setDynamicTooltip().onChange((x) => (v.intensity = x)));
+			.addSlider((s) => s.setLimits(1, 10, 1).setValue(v.intensity).onChange((x) => (v.intensity = x)));
 
 		chipField(this.app, el, t("training.techniques"), t("training.techniquesDesc"),
 			() => this.plugin.store.positions().map((p) => p.name), v.techniques);

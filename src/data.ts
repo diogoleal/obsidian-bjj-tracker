@@ -60,12 +60,16 @@ const num = (v: unknown, fallback = 0): number => {
 	return Number.isFinite(n) ? n : fallback;
 };
 
+/** Frontmatter scalar → string; objects/arrays fall back instead of "[object Object]". */
+const str = (v: unknown, fallback = ""): string =>
+	typeof v === "string" ? v : typeof v === "number" || typeof v === "boolean" ? String(v) : fallback;
+
 const asArray = (v: unknown): unknown[] =>
 	Array.isArray(v) ? v : v === undefined || v === null || v === "" ? [] : [v];
 
 /** "[[Note|alias]]" → "Note" */
 export function linkName(v: unknown): string {
-	const s = String(v ?? "").trim();
+	const s = str(v).trim();
 	const m = s.match(/^\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]$/);
 	return (m ? m[1] : s).trim();
 }
@@ -74,7 +78,9 @@ export const toLink = (name: string) => `[[${name}]]`;
 
 const parseDate = (v: unknown): Moment | null => {
 	if (!v) return null;
-	const m = moment(String(v), [DATE_FMT, moment.ISO_8601], true);
+	const raw = v instanceof Date ? v.toISOString() : str(v);
+	if (!raw) return null;
+	const m = moment(raw, [DATE_FMT, moment.ISO_8601], true);
 	return m.isValid() ? m : null;
 };
 
@@ -95,7 +101,7 @@ export class BjjData {
 			.map(({ file, fm }) => ({
 				file,
 				date: (parseDate(fm.date) ?? moment(file.stat.ctime)).clone().startOf("day"),
-				type: String(fm.type ?? "Other"),
+				type: str(fm.type, "Other"),
 				duration: num(fm.duration),
 				intensity: num(fm.intensity),
 				rolls: num(fm.rolls),
@@ -112,8 +118,8 @@ export class BjjData {
 			.map(({ file, fm }) => ({
 				file,
 				name: file.basename,
-				category: String(fm.category ?? "Other"),
-				perspective: String(fm.perspective ?? ""),
+				category: str(fm.category, "Other"),
+				perspective: str(fm.perspective),
 				level: Math.min(5, Math.max(1, num(fm.level, 1))),
 			}))
 			.sort((a, b) => a.name.localeCompare(b.name));
@@ -139,10 +145,10 @@ export class BjjData {
 			.map(({ file, fm }) => ({
 				file,
 				title: file.basename,
-				category: String(fm.category ?? "Other"),
-				horizon: String(fm.horizon ?? ""),
-				status: String(fm.status ?? "active"),
-				metric: String(fm.metric ?? "checklist"),
+				category: str(fm.category, "Other"),
+				horizon: str(fm.horizon),
+				status: str(fm.status, "active"),
+				metric: str(fm.metric, "checklist"),
 				target: num(fm.target),
 				start: parseDate(fm.start),
 				deadline: parseDate(fm.deadline),

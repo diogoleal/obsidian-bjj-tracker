@@ -58,6 +58,8 @@ export function sanitizeFileName(name: string): string {
 const bullets = (items: string[], fallback = "- ") =>
 	items.length ? items.map((i) => `- ${i}`).join("\n") : fallback;
 
+type Frontmatter = Record<string, unknown>;
+
 const today = () => moment().format(DATE_FMT);
 
 export class NoteFactory {
@@ -85,7 +87,9 @@ export class NoteFactory {
 		}
 		const file = await this.app.vault.create(path, body);
 		// processFrontMatter takes care of safe YAML serialization
-		await this.app.fileManager.processFrontMatter(file, (fm) => Object.assign(fm, frontmatter));
+		await this.app.fileManager.processFrontMatter(file, (fm: Frontmatter) => {
+			Object.assign(fm, frontmatter);
+		});
 		if (this.settings().openAfterCreate) {
 			await this.app.workspace.getLeaf(false).openFile(file);
 		}
@@ -257,16 +261,15 @@ export class NoteFactory {
 	}
 
 	async logDrillSession(file: TFile, date = today(), notify = true) {
-		await this.app.fileManager.processFrontMatter(file, (fm) => {
-			const sessions: string[] = Array.isArray(fm.sessions) ? fm.sessions : [];
-			sessions.push(date);
-			fm.sessions = sessions;
+		await this.app.fileManager.processFrontMatter(file, (fm: Frontmatter) => {
+			const sessions = Array.isArray(fm.sessions) ? (fm.sessions as unknown[]) : [];
+			fm.sessions = [...sessions, date];
 		});
 		if (notify) new Notice(t("drill.logged", { name: file.basename, date }));
 	}
 
 	async setPositionLevel(file: TFile, level: number) {
-		await this.app.fileManager.processFrontMatter(file, (fm) => {
+		await this.app.fileManager.processFrontMatter(file, (fm: Frontmatter) => {
 			fm.level = level;
 			fm.updated = today();
 		});
@@ -274,13 +277,13 @@ export class NoteFactory {
 	}
 
 	async incrementGoal(file: TFile, delta = 1) {
-		await this.app.fileManager.processFrontMatter(file, (fm) => {
+		await this.app.fileManager.processFrontMatter(file, (fm: Frontmatter) => {
 			fm.progress = (Number(fm.progress) || 0) + delta;
 		});
 	}
 
 	async setGoalStatus(file: TFile, status: string) {
-		await this.app.fileManager.processFrontMatter(file, (fm) => {
+		await this.app.fileManager.processFrontMatter(file, (fm: Frontmatter) => {
 			fm.status = status;
 			if (status === "done") fm.completed = today();
 		});

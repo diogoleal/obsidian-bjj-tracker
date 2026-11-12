@@ -97,6 +97,8 @@ after creating them.
 
 ## Installation
 
+Requires Obsidian 1.13 or later.
+
 **Community plugins** (once published): Settings → Community plugins → Browse → search for "BJJ Tracker".
 
 **Manual**: download `main.js`, `manifest.json` and `styles.css` from the
@@ -110,7 +112,8 @@ after creating them.
 ```bash
 npm install
 npm run dev                                   # rebuild on change
-npm run build                                 # type-check + production build
+npm run lint                                  # Obsidian's official ESLint rules
+npm run build                                 # type-check + lint + production build
 VAULT=/path/to/vault npm run install-vault    # copy the build into a vault
 ```
 

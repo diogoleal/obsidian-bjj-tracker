@@ -11,6 +11,8 @@ export default class BjjPlugin extends Plugin {
 	settings!: BjjSettings;
 	store!: BjjData;
 	notes!: NoteFactory;
+	/** Embedded ```bjj``` blocks currently on screen, re-rendered when settings change. */
+	private blockRenderers = new Set<() => void>();
 
 	async onload() {
 		await this.loadSettings();
@@ -34,7 +36,7 @@ export default class BjjPlugin extends Plugin {
 			callback: () => {
 				const files = this.store.drills().map((d) => d.file);
 				if (!files.length) return void new Notice(t("cmd.noDrills"));
-				new FileSuggestModal(this.app, files, t("cmd.whichDrill"), (f) => this.notes.logDrillSession(f)).open();
+				new FileSuggestModal(this.app, files, t("cmd.whichDrill"), (f) => void this.notes.logDrillSession(f)).open();
 			},
 		});
 
@@ -42,7 +44,7 @@ export default class BjjPlugin extends Plugin {
 			id: "set-position-level",
 			name: t("cmd.positionLevel"),
 			callback: () => {
-				const pickLevel = (f: TFile) => new LevelModal(this.app, (n) => this.notes.setPositionLevel(f, n)).open();
+				const pickLevel = (f: TFile) => new LevelModal(this.app, (n) => void this.notes.setPositionLevel(f, n)).open();
 				const active = this.app.workspace.getActiveFile();
 				if (active && this.kindOf(active) === NOTE_KIND.position) return pickLevel(active);
 				const files = this.store.positions().map((p) => p.file);
@@ -59,7 +61,7 @@ export default class BjjPlugin extends Plugin {
 				if (active && this.kindOf(active) === NOTE_KIND.goal) return void this.notes.setGoalStatus(active, "done");
 				const files = this.store.goals().filter((g) => g.status === "active").map((g) => g.file);
 				if (!files.length) return void new Notice(t("cmd.noActiveGoals"));
-				new FileSuggestModal(this.app, files, t("cmd.whichGoal"), (f) => this.notes.setGoalStatus(f, "done")).open();
+				new FileSuggestModal(this.app, files, t("cmd.whichGoal"), (f) => void this.notes.setGoalStatus(f, "done")).open();
 			},
 		});
 
@@ -82,6 +84,8 @@ export default class BjjPlugin extends Plugin {
 			const render = () => renderDashboard(this, el, sections);
 			const refresh = debounce(render, 500, true);
 			child.registerEvent(this.app.metadataCache.on("changed", (f) => f.path !== ctx.sourcePath && refresh()));
+			this.blockRenderers.add(refresh);
+			child.register(() => this.blockRenderers.delete(refresh));
 			ctx.addChild(child);
 			render();
 		});
@@ -104,7 +108,8 @@ export default class BjjPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign(defaultSettings(), await this.loadData());
+		const saved = (await this.loadData()) as Partial<BjjSettings> | null;
+		this.settings = Object.assign(defaultSettings(), saved);
 	}
 
 	async saveSettings() {
@@ -112,5 +117,6 @@ export default class BjjPlugin extends Plugin {
 		this.app.workspace.getLeavesOfType(VIEW_TYPE_DASHBOARD).forEach((l) => {
 			if (l.view instanceof DashboardView) l.view.render();
 		});
+		this.blockRenderers.forEach((render) => render());
 	}
 }

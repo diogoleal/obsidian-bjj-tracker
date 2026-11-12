@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, normalizePath } from "obsidian";
+import { App, PluginSettingTab, SettingDefinitionItem, normalizePath } from "obsidian";
 import type BjjPlugin from "./main";
 import { BELTS } from "./constants";
 import { L, t } from "./i18n";
@@ -43,117 +43,84 @@ export function defaultSettings(): BjjSettings {
 type FolderKey = "trainingFolder" | "positionsFolder" | "drillsFolder" | "goalsFolder";
 
 export function folderFor(s: BjjSettings, key: FolderKey): string {
-	return normalizePath(s.rootFolder ? `${s.rootFolder}/${s[key]}` : s[key]);
+	const root = s.rootFolder.replace(/^\/+|\/+$/g, "");
+	return normalizePath(root ? `${root}/${s[key]}` : s[key]);
 }
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export class BjjSettingTab extends PluginSettingTab {
 	constructor(app: App, private plugin: BjjPlugin) {
 		super(app, plugin);
 	}
 
-	display(): void {
-		const { containerEl } = this;
-		const s = this.plugin.settings;
-		const save = () => this.plugin.saveSettings();
-		containerEl.empty();
+	getSettingDefinitions(): SettingDefinitionItem<keyof BjjSettings>[] {
+		const types = L.list("trainingTypes");
+		const typeOptions: Record<string, string> = {};
+		for (const x of [this.plugin.settings.defaultType, ...types]) typeOptions[x] = x;
 
-		new Setting(containerEl).setName(t("settings.rank")).setHeading();
+		return [
+			{
+				type: "group",
+				heading: t("settings.rank"),
+				items: [
+					{
+						name: t("settings.belt"),
+						control: {
+							type: "dropdown",
+							key: "belt",
+							options: Object.fromEntries(BELTS.map((b) => [b, L.belt(b)])),
+						},
+					},
+					{
+						name: t("settings.stripes"),
+						control: { type: "slider", key: "stripes", min: 0, max: 4, step: 1 },
+					},
+					{
+						name: t("settings.promotionDate"),
+						desc: t("settings.promotionDateDesc"),
+						control: {
+							type: "text",
+							key: "promotionDate",
+							placeholder: "YYYY-MM-DD",
+							validate: (v) => (v === "" || DATE_RE.test(v) ? undefined : "YYYY-MM-DD"),
+						},
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: t("settings.training"),
+				items: [
+					{ name: t("settings.academy"), control: { type: "text", key: "defaultAcademy" } },
+					{ name: t("settings.instructor"), control: { type: "text", key: "defaultInstructor" } },
+					{ name: t("settings.type"), control: { type: "dropdown", key: "defaultType", options: typeOptions } },
+					{ name: t("settings.duration"), control: { type: "number", key: "defaultDuration", min: 0, step: 5 } },
+					{
+						name: t("settings.weeklyGoal"),
+						desc: t("settings.weeklyGoalDesc"),
+						control: { type: "number", key: "weeklyGoal", min: 1, max: 14, step: 1 },
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: t("settings.folders"),
+				items: [
+					{ name: t("settings.rootFolder"), control: { type: "folder", key: "rootFolder", includeRoot: true } },
+					{ name: t("settings.trainingFolder"), control: { type: "text", key: "trainingFolder" } },
+					{ name: t("settings.positionsFolder"), control: { type: "text", key: "positionsFolder" } },
+					{ name: t("settings.drillsFolder"), control: { type: "text", key: "drillsFolder" } },
+					{ name: t("settings.goalsFolder"), control: { type: "text", key: "goalsFolder" } },
+					{ name: t("settings.openAfterCreate"), control: { type: "toggle", key: "openAfterCreate" } },
+				],
+			},
+		];
+	}
 
-		new Setting(containerEl).setName(t("settings.belt")).addDropdown((d) => {
-			BELTS.forEach((b) => d.addOption(b, L.belt(b)));
-			d.setValue(s.belt).onChange(async (v) => {
-				s.belt = v;
-				await save();
-			});
-		});
-
-		new Setting(containerEl).setName(t("settings.stripes")).addSlider((sl) =>
-			sl
-				.setLimits(0, 4, 1)
-				.setValue(s.stripes)
-				.setDynamicTooltip()
-				.onChange(async (v) => {
-					s.stripes = v;
-					await save();
-				})
-		);
-
-		new Setting(containerEl)
-			.setName(t("settings.promotionDate"))
-			.setDesc(t("settings.promotionDateDesc"))
-			.addText((tx) => {
-				tx.inputEl.type = "date";
-				tx.setValue(s.promotionDate).onChange(async (v) => {
-					s.promotionDate = v;
-					await save();
-				});
-			});
-
-		new Setting(containerEl).setName(t("settings.training")).setHeading();
-
-		new Setting(containerEl).setName(t("settings.academy")).addText((tx) =>
-			tx.setValue(s.defaultAcademy).onChange(async (v) => {
-				s.defaultAcademy = v;
-				await save();
-			})
-		);
-
-		new Setting(containerEl).setName(t("settings.instructor")).addText((tx) =>
-			tx.setValue(s.defaultInstructor).onChange(async (v) => {
-				s.defaultInstructor = v;
-				await save();
-			})
-		);
-
-		new Setting(containerEl).setName(t("settings.type")).addDropdown((d) => {
-			const types = L.list("trainingTypes");
-			if (!types.includes(s.defaultType)) d.addOption(s.defaultType, s.defaultType);
-			types.forEach((x) => d.addOption(x, x));
-			d.setValue(s.defaultType).onChange(async (v) => {
-				s.defaultType = v;
-				await save();
-			});
-		});
-
-		new Setting(containerEl).setName(t("settings.duration")).addText((tx) => {
-			tx.inputEl.type = "number";
-			tx.setValue(String(s.defaultDuration)).onChange(async (v) => {
-				s.defaultDuration = Number(v) || 0;
-				await save();
-			});
-		});
-
-		new Setting(containerEl)
-			.setName(t("settings.weeklyGoal"))
-			.setDesc(t("settings.weeklyGoalDesc"))
-			.addText((tx) => {
-				tx.inputEl.type = "number";
-				tx.setValue(String(s.weeklyGoal)).onChange(async (v) => {
-					s.weeklyGoal = Math.max(1, Number(v) || 1);
-					await save();
-				});
-			});
-
-		new Setting(containerEl).setName(t("settings.folders")).setHeading();
-
-		const folder = (name: string, key: "rootFolder" | FolderKey) =>
-			new Setting(containerEl).setName(name).addText((tx) =>
-				tx.setValue(s[key]).onChange(async (v) => {
-					s[key] = v.trim();
-					await save();
-				})
-			);
-		folder(t("settings.rootFolder"), "rootFolder");
-		folder(t("settings.trainingFolder"), "trainingFolder");
-		folder(t("settings.positionsFolder"), "positionsFolder");
-		folder(t("settings.drillsFolder"), "drillsFolder");
-		folder(t("settings.goalsFolder"), "goalsFolder");
-
-		new Setting(containerEl).setName(t("settings.openAfterCreate")).addToggle((tg) =>
-			tg.setValue(s.openAfterCreate).onChange(async (v) => {
-				s.openAfterCreate = v;
-				await save();
-			})
-		);
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		const s = this.plugin.settings as unknown as Record<string, unknown>;
+		s[key] = typeof value === "string" ? value.trim() : value;
+		await this.plugin.saveSettings();
 	}
 }
