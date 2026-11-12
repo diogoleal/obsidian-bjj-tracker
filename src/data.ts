@@ -1,9 +1,9 @@
-import { App, TFile, moment } from "obsidian";
+import { App, TFile } from "obsidian";
 import { NOTE_KIND, NoteKind } from "./constants";
 import { t } from "./i18n";
 import type { BjjSettings } from "./settings";
+import { Moment, moment } from "./time";
 
-type Moment = ReturnType<typeof moment>;
 export const DATE_FMT = "YYYY-MM-DD";
 
 export interface Training {

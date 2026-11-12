@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Date handling no longer depends on the `moment` package's type declarations: a small typed wrapper
+  (`src/time.ts`) around Obsidian's bundled moment keeps the code type-safe even when `moment` isn't
+  resolvable, which is what the community directory scanner reported as `any`-related warnings.
+- Dropdown options are added in plain loops instead of `forEach` callbacks that returned a value.
+
 ## 1.0.2
 
 ### Fixed

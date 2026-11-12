@@ -1,4 +1,5 @@
-import { ItemView, TFile, WorkspaceLeaf, debounce, moment, setIcon } from "obsidian";
+import { ItemView, TFile, WorkspaceLeaf, debounce, setIcon } from "obsidian";
+import { moment } from "./time";
 import { BELT_COLORS, LEVELS, VIEW_TYPE_DASHBOARD } from "./constants";
 import { DATE_FMT, Position, Training } from "./data";
 import { L, daysAgo, t } from "./i18n";

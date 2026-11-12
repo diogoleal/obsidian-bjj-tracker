@@ -1,4 +1,5 @@
-import { App, Notice, TFile, moment, normalizePath } from "obsidian";
+import { App, Notice, TFile, normalizePath } from "obsidian";
+import { moment } from "./time";
 import { NOTE_KIND } from "./constants";
 import { DATE_FMT, toLink } from "./data";
 import { L, t } from "./i18n";

@@ -1,4 +1,5 @@
-import { AbstractInputSuggest, App, FuzzySuggestModal, Modal, Notice, Setting, TFile, moment } from "obsidian";
+import { AbstractInputSuggest, App, FuzzySuggestModal, Modal, Notice, Setting, TFile } from "obsidian";
+import { moment } from "./time";
 import { GOAL_METRICS, LEVELS } from "./constants";
 import { DATE_FMT } from "./data";
 import { L, t } from "./i18n";
@@ -84,7 +85,7 @@ function textField(container: HTMLElement, name: string, value: string, onChange
 
 function dropdown(container: HTMLElement, name: string, options: readonly string[], value: string, onChange: (v: string) => void) {
 	return new Setting(container).setName(name).addDropdown((d) => {
-		options.forEach((o) => d.addOption(o, o));
+		for (const o of options) d.addOption(o, o);
 		d.setValue(value).onChange(onChange);
 	});
 }
@@ -219,7 +220,7 @@ export class PositionModal extends BjjModal {
 		dropdown(el, t("position.category"), L.list("positionCategories"), v.category, (x) => (v.category = x));
 		dropdown(el, t("position.perspective"), L.list("perspectives"), v.perspective, (x) => (v.perspective = x));
 		new Setting(el).setName(t("position.level")).addDropdown((d) => {
-			LEVELS.forEach((n) => d.addOption(String(n), `${n} — ${L.level(n)}`));
+			for (const n of LEVELS) d.addOption(String(n), `${n} — ${L.level(n)}`);
 			d.setValue(String(v.level)).onChange((x) => (v.level = Number(x)));
 		});
 		textField(el, t("position.video"), "", (x) => (v.video = x), "https://…");
@@ -317,7 +318,7 @@ export class GoalModal extends BjjModal {
 
 		let targetSetting: Setting | null = null;
 		new Setting(el).setName(t("goal.metric")).addDropdown((d) => {
-			GOAL_METRICS.forEach((k) => d.addOption(k, L.metric(k)));
+			for (const k of GOAL_METRICS) d.addOption(k, L.metric(k));
 			d.setValue(v.metric).onChange((x) => {
 				v.metric = x;
 				targetSetting?.settingEl.toggle(x !== "checklist");
