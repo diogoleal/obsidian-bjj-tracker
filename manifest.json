@@ -1,7 +1,7 @@
 {
   "id": "bjj-tracker",
   "name": "BJJ Tracker",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "minAppVersion": "1.13.0",
   "description": "Log Brazilian Jiu-Jitsu training sessions, positions, drills and goals, with a stats dashboard.",
   "author": "Diogo Leal",
