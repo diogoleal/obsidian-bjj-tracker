@@ -119,6 +119,8 @@ VAULT=/path/to/vault npm run install-vault    # copy the build into a vault
 
 ### Releasing
 
+Add a `## <version>` section to [CHANGELOG.md](CHANGELOG.md) (it becomes the release notes), then:
+
 ```bash
 npm version patch        # bumps package.json, manifest.json and versions.json
 git push --follow-tags   # the Release workflow builds and attaches main.js, manifest.json, styles.css
