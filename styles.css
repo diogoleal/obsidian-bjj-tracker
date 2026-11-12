@@ -116,9 +116,14 @@
 .bjj-icon-btn svg, .bjj-mini-actions svg { width: 14px; height: 14px; }
 
 /* Heatmap */
-.bjj-heatmap { display: flex; gap: 3px; overflow-x: auto; padding-bottom: 4px; }
+.bjj-heatmap {
+	display: grid;
+	grid-template-columns: repeat(26, minmax(0, 1fr));
+	gap: 3px;
+	max-width: 640px;
+}
 .bjj-heat-col { display: flex; flex-direction: column; gap: 3px; }
-.bjj-heat-cell { width: 13px; height: 13px; border-radius: 3px; background: var(--bjj-track); }
+.bjj-heat-cell { aspect-ratio: 1; border-radius: 3px; background: var(--bjj-track); }
 .bjj-heat-cell.lvl-1 { background: color-mix(in srgb, var(--bjj-accent) 35%, transparent); }
 .bjj-heat-cell.lvl-2 { background: color-mix(in srgb, var(--bjj-accent) 60%, transparent); }
 .bjj-heat-cell.lvl-3 { background: color-mix(in srgb, var(--bjj-accent) 80%, transparent); }
@@ -149,11 +154,12 @@
 /* Positions */
 .bjj-levels {
 	display: grid;
-	grid-template-columns: repeat(5, 1fr);
+	grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
 	gap: var(--size-4-2);
 	margin-bottom: var(--size-4-3);
 }
 .bjj-level { padding: var(--size-4-2); text-align: center; border-top: 3px solid var(--bjj-track); }
+.bjj-level .bjj-card-label { font-size: var(--font-ui-smaller); }
 .bjj-level.lvl-1 { border-top-color: var(--color-red); }
 .bjj-level.lvl-2 { border-top-color: var(--color-orange); }
 .bjj-level.lvl-3 { border-top-color: var(--color-yellow); }
@@ -195,6 +201,5 @@
 .bjj-textarea-setting .setting-item-control textarea { width: 100%; }
 
 @media (max-width: 600px) {
-	.bjj-levels { grid-template-columns: repeat(3, 1fr); }
 	.bjj-row-label { width: 40%; min-width: 80px; }
 }

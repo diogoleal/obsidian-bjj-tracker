@@ -1,7 +1,7 @@
 import { ItemView, TFile, WorkspaceLeaf, debounce, moment, setIcon } from "obsidian";
 import { BELT_COLORS, LEVELS, VIEW_TYPE_DASHBOARD } from "./constants";
 import { DATE_FMT, Position, Training } from "./data";
-import { L, t } from "./i18n";
+import { L, daysAgo, t } from "./i18n";
 import type BjjPlugin from "./main";
 import { DrillModal, GoalModal, PositionModal, TrainingModal } from "./modals";
 
@@ -204,7 +204,7 @@ export function renderDashboard(plugin: BjjPlugin, root: HTMLElement, sections: 
 			const row = s.createDiv({ cls: "bjj-row" });
 			link(row.createSpan({ cls: "bjj-row-label" }), d.file, d.name);
 			bar(row, done / target, done >= target ? "is-done" : "");
-			const last = d.sessions[0] ? ` · ${t("dash.lastDone", { when: d.sessions[0].fromNow() })}` : "";
+			const last = d.sessions[0] ? ` · ${t("dash.lastDone", { when: daysAgo(d.sessions[0].valueOf()) })}` : "";
 			row.createSpan({ cls: "bjj-row-value", text: `${done}/${d.weeklyTarget || "–"}${last}` });
 			const b = row.createEl("button", { cls: "bjj-icon-btn", attr: { "aria-label": t("dash.logToday") } });
 			setIcon(b, "check");
@@ -257,7 +257,7 @@ export function renderDashboard(plugin: BjjPlugin, root: HTMLElement, sections: 
 					const li = ul.createEl("li");
 					link(li, p.file, p.name);
 					const seen = lastSeen.get(p.name);
-					li.createSpan({ cls: "bjj-muted", text: seen ? ` — ${moment(seen).fromNow()}` : t("dash.neverTrained") });
+					li.createSpan({ cls: "bjj-muted", text: seen ? ` — ${daysAgo(seen)}` : t("dash.neverTrained") });
 				}
 			}
 		}

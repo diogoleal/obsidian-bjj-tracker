@@ -162,7 +162,8 @@ const en = {
 	// Dashboard
 	"dash.sinceRank": "{duration} at current rank · {n} sessions since",
 	"dash.beltName": "{belt} belt",
-	"dash.stripes": "{n} stripe(s)",
+	"dash.stripes": "{n} stripes",
+	"dash.stripes_one": "1 stripe",
 	"dash.btnTraining": "Training",
 	"dash.btnPosition": "Position",
 	"dash.btnDrill": "Drill",
@@ -172,7 +173,8 @@ const en = {
 	"dash.thisYear": "This year",
 	"dash.total": "Total",
 	"dash.streak": "Streak",
-	"dash.weeks": "{n} week(s)",
+	"dash.weeks": "{n} weeks",
+	"dash.weeks_one": "1 week",
 	"dash.perWeek": "≥ {n} sessions/week",
 	"dash.rollsMonth": "Rolls this month",
 	"dash.subsSummary": "{given} subs · {received} taps",
@@ -185,10 +187,14 @@ const en = {
 	"dash.daysLeft": "{n}d left",
 	"dash.addOne": "Add 1",
 	"dash.markDone": "Mark as completed",
-	"dash.completedGoals": "🏆 {n} goal(s) completed so far",
+	"dash.completedGoals": "🏆 {n} goals completed so far",
+	"dash.completedGoals_one": "🏆 1 goal completed so far",
 	"dash.weekDrills": "This week's drills",
 	"dash.noDrills": "No drills yet.",
 	"dash.lastDone": "last {when}",
+	"rel.today": "today",
+	"rel.yesterday": "yesterday",
+	"rel.daysAgo": "{n} days ago",
 	"dash.logToday": "Log session today",
 	"dash.repertoire": "Position repertoire",
 	"dash.noPositions": "No positions yet.",
@@ -365,6 +371,7 @@ const pt: Dict = {
 	"dash.sinceRank": "Há {duration} na graduação atual · {n} treinos desde então",
 	"dash.beltName": "Faixa {belt}",
 	"dash.stripes": "{n}º grau",
+	"dash.stripes_one": "1º grau",
 	"dash.btnTraining": "Treino",
 	"dash.btnPosition": "Posição",
 	"dash.btnDrill": "Drill",
@@ -374,7 +381,8 @@ const pt: Dict = {
 	"dash.thisYear": "Este ano",
 	"dash.total": "Total",
 	"dash.streak": "Sequência",
-	"dash.weeks": "{n} semana(s)",
+	"dash.weeks": "{n} semanas",
+	"dash.weeks_one": "1 semana",
 	"dash.perWeek": "≥ {n} treinos/semana",
 	"dash.rollsMonth": "Rolas no mês",
 	"dash.subsSummary": "{given} finalizou · {received} foi finalizado",
@@ -387,10 +395,14 @@ const pt: Dict = {
 	"dash.daysLeft": "{n}d restantes",
 	"dash.addOne": "Somar 1",
 	"dash.markDone": "Marcar como concluída",
-	"dash.completedGoals": "🏆 {n} meta(s) concluída(s) até agora",
+	"dash.completedGoals": "🏆 {n} metas concluídas até agora",
+	"dash.completedGoals_one": "🏆 1 meta concluída até agora",
 	"dash.weekDrills": "Drills da semana",
 	"dash.noDrills": "Nenhum drill cadastrado.",
 	"dash.lastDone": "último {when}",
+	"rel.today": "hoje",
+	"rel.yesterday": "ontem",
+	"rel.daysAgo": "há {n} dias",
 	"dash.logToday": "Registrar execução hoje",
 	"dash.repertoire": "Repertório de posições",
 	"dash.noPositions": "Nenhuma posição cadastrada.",
@@ -475,7 +487,15 @@ function lang(): Lang {
 
 export function t(key: I18nKey, vars: Record<string, string | number> = {}): string {
 	const dict = lang() === "pt" ? pt : en;
+	const one = `${key}_one` as I18nKey;
+	if (vars.n === 1 && one in dict) key = one;
 	return (dict[key] ?? en[key]).replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? `{${k}}`));
+}
+
+/** Calendar-day distance from today ("today", "yesterday", "5 days ago"). */
+export function daysAgo(dayMs: number): string {
+	const n = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(dayMs).setHours(0, 0, 0, 0)) / 86400000);
+	return n <= 0 ? t("rel.today") : n === 1 ? t("rel.yesterday") : t("rel.daysAgo", { n });
 }
 
 export const L = {
