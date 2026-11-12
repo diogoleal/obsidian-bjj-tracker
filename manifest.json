@@ -1,0 +1,9 @@
+{
+  "id": "bjj-tracker",
+  "name": "BJJ Tracker",
+  "version": "1.0.0",
+  "minAppVersion": "1.6.6",
+  "description": "Registre treinos, posições, drills, objetivos e metas de Jiu-Jitsu, com painel de estatísticas.",
+  "author": "Diogo",
+  "isDesktopOnly": false
+}
