@@ -3,51 +3,80 @@
 An [Obsidian](https://obsidian.md) plugin to log your Brazilian Jiu-Jitsu **training sessions**, **positions & techniques**,
 **drills** and **goals** as regular notes, and follow your progress on a stats dashboard.
 
-The interface is available in **English** and **Portuguese** (picked automatically from Obsidian's language setting).
+Everything is plain Markdown with properties (frontmatter): edit notes by hand, move them anywhere in your vault,
+or query them with Bases / Dataview. The interface is available in **English** and **Portuguese (Brazil)**,
+picked automatically from Obsidian's language setting.
+
+![Dashboard: belt, weekly stats, streak and 26-week frequency heatmap](docs/images/dashboard.png)
 
 ## Features
 
-- **Training log** — date, type (Gi, No-Gi, open mat, competition…), duration, intensity, academy, instructor,
-  rolls, submissions landed / times tapped, techniques worked, drills done, injuries and notes.
-- **Position library** — category, perspective (top / bottom), proficiency level from 1 (*Aware*) to 5 (*Mastered*),
-  video reference and related positions, with a note template for key details, common mistakes and follow-ups.
-- **Drills** — sets × reps, time, weekly target and a history of every session.
-- **Goals** — short / medium / long term, deadline, status and automatic progress tracking.
-- **Dashboard** — current belt and stripes, sessions this week vs. your weekly goal, weekly streak, 26-week
-  frequency heatmap, time per training type, active goals with progress bars, this week's drills, position
-  repertoire by level, positions you haven't trained in a while, most-trained techniques and recent sessions.
-- **Embeddable** — drop any part of the dashboard into a note (e.g. your daily note) with a `bjj` code block.
+### Dashboard
 
-Everything is stored as plain Markdown with properties (frontmatter), so you can edit notes by hand, move them
-anywhere in your vault, or query them with Dataview / Bases.
+- **Rank**: current belt and stripes, time at the current rank and sessions since your last promotion.
+- **Stats**: sessions and mat time this week (against your weekly goal), this month, this year and in total.
+  Also your weekly streak, and rolls, submissions and taps this month.
+- **Frequency heatmap** of the last 26 weeks, plus mat time per training type over the last 90 days.
+- **Active goals** with progress bars, days left (or overdue), a **+1** button for manual goals and a
+  ✓ button to complete them.
+- **This week's drills** against each drill's weekly target, with a ✓ button to log a session today.
+- **Position repertoire** by proficiency level and category, and the positions you haven't trained the longest.
+- **Most trained techniques** and a table of **recent sessions**.
+- Quick buttons to log a training session or create a position, drill or goal.
 
-## Usage
+![Active goals, weekly drills and position repertoire](docs/images/goals-drills-positions.png)
 
-Open the dashboard from the ribbon (swords icon) or the command palette. Available commands:
+![Most trained techniques and recent sessions](docs/images/techniques-sessions.png)
 
-| Command | What it does |
+### Training log
+
+Date, type (Gi, No-Gi, open mat, private lesson, competition…), duration, academy, instructor and intensity (1–10).
+Also the techniques and drills you worked on, rolls, submissions landed, times tapped, injuries and notes.
+
+Techniques and drills are entered as chips that suggest your existing notes as you type. A name that doesn't exist yet
+becomes a link you can fill in later. Logging a session with drills also records that session in each drill note.
+
+<p align="center"><img src="docs/images/log-training.png" alt="Log training session form" width="520"></p>
+
+### Positions & techniques
+
+A library of positions with category (guard, passing, sweeps, submissions, escapes, takedowns…), perspective
+(top / bottom / neutral) and a proficiency level:
+
+| Level | Meaning |
 |---|---|
-| Open dashboard | Opens the stats dashboard in a new tab |
-| Log training session | Form to log a session |
-| New position / technique | Form to add a position to your library |
-| New drill | Form to create a drill |
-| New goal | Form to create a goal |
-| Log drill session (today) | Pick a drill and log a session for today |
-| Change position proficiency level | Uses the active note if it is a position |
-| Complete goal | Uses the active note if it is a goal |
+| 1 | Aware |
+| 2 | Understand the details |
+| 3 | Can do it drilling |
+| 4 | Can do it rolling |
+| 5 | Mastered |
 
-### Goal progress
+Each position note comes with sections for key details, step by step, common mistakes, follow-ups, counters,
+related positions and references (e.g. a video link).
+
+### Drills
+
+Sets × reps, time, positions trained and a weekly target. Every session is stored as a date in the note, so the
+dashboard can show how many times you drilled each one this week.
+
+### Goals
+
+Short, medium or long term goals with category, deadline and status (`active`, `paused`, `done`, `abandoned`).
+Progress is tracked automatically:
 
 | Metric | How progress is measured |
 |---|---|
 | Checklist | Ticked `- [x]` tasks in the goal note |
-| Number of sessions | Training notes between `start` and `deadline` (automatic) |
-| Mat hours | Sum of training `duration` between `start` and `deadline` (automatic) |
+| Number of sessions | Training notes between `start` and `deadline` |
+| Mat hours | Sum of training `duration` between `start` and `deadline` |
 | Manual | The `progress` counter, incremented with the dashboard's **+1** button |
 
-### Dashboard in a note
+<p align="center"><img src="docs/images/new-goal.png" alt="New goal form" width="520"></p>
 
-An empty block renders the whole dashboard; otherwise list the sections you want:
+### Dashboard in any note
+
+Drop any part of the dashboard into a note, such as your daily note, with a `bjj` code block. An empty block
+renders the whole dashboard; otherwise list the sections you want:
 
 ````markdown
 ```bjj
@@ -58,6 +87,34 @@ drills
 ````
 
 Sections: `summary`, `heatmap`, `goals`, `drills`, `positions`, `techniques`, `recent`.
+Blocks update when your BJJ notes or the plugin settings change.
+
+![A daily note with an embedded bjj block](docs/images/embedded-block.png)
+
+## Commands
+
+Open the dashboard from the ribbon (swords icon) or the command palette. The ribbon also has a button to log a training session.
+
+| Command | What it does |
+|---|---|
+| Open dashboard | Opens the stats dashboard in a new tab |
+| Log training session | Form to log a session |
+| New position / technique | Form to add a position to your library |
+| New drill | Form to create a drill |
+| New goal | Form to create a goal |
+| Log drill session (today) | Pick a drill and log a session for today |
+| Change position proficiency level | Uses the active note if it is a position, otherwise asks which one |
+| Complete goal | Uses the active note if it is a goal, otherwise asks which one |
+
+## Settings
+
+The settings are listed in Obsidian's settings search.
+
+- **Rank**: belt, stripes and last promotion date.
+- **Training**: default academy, instructor, training type and duration, and your weekly training goal (used for
+  the weekly stat and the streak).
+- **Folders**: root folder (default `BJJ`) and the subfolders for training, positions, drills and goals, and
+  whether to open notes after creating them.
 
 ## Note format
 
@@ -89,17 +146,13 @@ tags: [bjj/training]
 | `drill` | `positions`, `sets`, `reps`, `time_min`, `weekly_target`, `sessions` (list of dates) |
 | `goal` | `category`, `horizon`, `status` (`active` / `paused` / `done` / `abandoned`), `start`, `deadline`, `metric`, `target`, `progress` |
 
-## Settings
-
-Belt, stripes and last promotion date; default academy, instructor, training type and duration; weekly training
-goal; folder names (default `BJJ/Training`, `BJJ/Positions`, `BJJ/Drills`, `BJJ/Goals`); whether to open notes
-after creating them.
+Notes you create by hand work too, as long as they have the `bjj` property.
 
 ## Installation
 
 Requires Obsidian 1.13 or later.
 
-**Community plugins** (once published): Settings → Community plugins → Browse → search for "BJJ Tracker".
+**Community plugins**: Settings → Community plugins → Browse → search for "BJJ Tracker".
 
 **Manual**: download `main.js`, `manifest.json` and `styles.css` from the
 [latest release](https://github.com/diogoleal/obsidian-bjj-tracker/releases/latest) into
@@ -123,7 +176,7 @@ Add a `## <version>` section to [CHANGELOG.md](CHANGELOG.md) (it becomes the rel
 
 ```bash
 npm version patch        # bumps package.json, manifest.json and versions.json
-git push --follow-tags   # the Release workflow builds and attaches main.js, manifest.json, styles.css
+git push --follow-tags   # the Release workflow builds, attests and attaches main.js, manifest.json, styles.css
 ```
 
 ## License
