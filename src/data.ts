@@ -1,55 +1,56 @@
 import { App, TFile, moment } from "obsidian";
 import { NOTE_KIND, NoteKind } from "./constants";
+import { t } from "./i18n";
 import type { BjjSettings } from "./settings";
 
 type Moment = ReturnType<typeof moment>;
 export const DATE_FMT = "YYYY-MM-DD";
 
-export interface Treino {
+export interface Training {
 	file: TFile;
-	data: Moment;
-	tipo: string;
-	duracao: number; // minutos
-	intensidade: number;
-	rolas: number;
-	finalizacoesFeitas: number;
-	finalizacoesSofridas: number;
-	tecnicas: string[]; // nomes (sem [[ ]])
+	date: Moment;
+	type: string;
+	duration: number; // minutes
+	intensity: number;
+	rolls: number;
+	subsGiven: number;
+	subsReceived: number;
+	techniques: string[]; // note names (without [[ ]])
 	drills: string[];
 }
 
-export interface Posicao {
+export interface Position {
 	file: TFile;
-	nome: string;
-	categoria: string;
-	perspectiva: string;
-	nivel: number;
+	name: string;
+	category: string;
+	perspective: string;
+	level: number;
 }
 
 export interface Drill {
 	file: TFile;
-	nome: string;
-	posicoes: string[];
-	frequencia: number; // vezes por semana
-	execucoes: Moment[];
+	name: string;
+	positions: string[];
+	weeklyTarget: number;
+	sessions: Moment[]; // newest first
 }
 
-export interface Meta {
+export interface Goal {
 	file: TFile;
-	titulo: string;
-	categoria: string;
-	horizonte: string;
+	title: string;
+	category: string;
+	horizon: string;
 	status: string;
-	metrica: string;
-	alvo: number;
-	inicio: Moment | null;
-	prazo: Moment | null;
-	progressoManual: number;
+	metric: string;
+	target: number;
+	start: Moment | null;
+	deadline: Moment | null;
+	manualProgress: number;
 }
 
-export interface ProgressoMeta {
-	atual: number;
-	alvo: number;
+export interface GoalProgress {
+	current: number;
+	target: number;
 	pct: number; // 0..1
 	label: string;
 }
@@ -62,7 +63,7 @@ const num = (v: unknown, fallback = 0): number => {
 const asArray = (v: unknown): unknown[] =>
 	Array.isArray(v) ? v : v === undefined || v === null || v === "" ? [] : [v];
 
-/** "[[Nota|alias]]" → "Nota" */
+/** "[[Note|alias]]" → "Note" */
 export function linkName(v: unknown): string {
 	const s = String(v ?? "").trim();
 	const m = s.match(/^\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]$/);
@@ -80,8 +81,8 @@ const parseDate = (v: unknown): Moment | null => {
 export class BjjData {
 	constructor(private app: App, private settings: () => BjjSettings) {}
 
-	private notesOf(kind: NoteKind): { file: TFile; fm: Record<string, any> }[] {
-		const out: { file: TFile; fm: Record<string, any> }[] = [];
+	private notesOf(kind: NoteKind): { file: TFile; fm: Record<string, unknown> }[] {
+		const out: { file: TFile; fm: Record<string, unknown> }[] = [];
 		for (const file of this.app.vault.getMarkdownFiles()) {
 			const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
 			if (fm && fm.bjj === kind) out.push({ file, fm });
@@ -89,136 +90,127 @@ export class BjjData {
 		return out;
 	}
 
-	treinos(): Treino[] {
-		return this.notesOf(NOTE_KIND.treino)
-			.map(({ file, fm }) => {
-				const data = parseDate(fm.data) ?? moment(file.stat.ctime);
-				return {
-					file,
-					data: data.clone().startOf("day"),
-					tipo: String(fm.tipo ?? "Outro"),
-					duracao: num(fm.duracao),
-					intensidade: num(fm.intensidade),
-					rolas: num(fm.rolas),
-					finalizacoesFeitas: num(fm.finalizacoes_feitas),
-					finalizacoesSofridas: num(fm.finalizacoes_sofridas),
-					tecnicas: asArray(fm.tecnicas).map(linkName).filter(Boolean),
-					drills: asArray(fm.drills).map(linkName).filter(Boolean),
-				};
-			})
-			.sort((a, b) => b.data.valueOf() - a.data.valueOf());
-	}
-
-	posicoes(): Posicao[] {
-		return this.notesOf(NOTE_KIND.posicao)
+	trainings(): Training[] {
+		return this.notesOf(NOTE_KIND.training)
 			.map(({ file, fm }) => ({
 				file,
-				nome: file.basename,
-				categoria: String(fm.categoria ?? "Outro"),
-				perspectiva: String(fm.perspectiva ?? ""),
-				nivel: Math.min(5, Math.max(1, num(fm.nivel, 1))),
+				date: (parseDate(fm.date) ?? moment(file.stat.ctime)).clone().startOf("day"),
+				type: String(fm.type ?? "Other"),
+				duration: num(fm.duration),
+				intensity: num(fm.intensity),
+				rolls: num(fm.rolls),
+				subsGiven: num(fm.submissions_given),
+				subsReceived: num(fm.submissions_received),
+				techniques: asArray(fm.techniques).map(linkName).filter(Boolean),
+				drills: asArray(fm.drills).map(linkName).filter(Boolean),
 			}))
-			.sort((a, b) => a.nome.localeCompare(b.nome));
+			.sort((a, b) => b.date.valueOf() - a.date.valueOf());
+	}
+
+	positions(): Position[] {
+		return this.notesOf(NOTE_KIND.position)
+			.map(({ file, fm }) => ({
+				file,
+				name: file.basename,
+				category: String(fm.category ?? "Other"),
+				perspective: String(fm.perspective ?? ""),
+				level: Math.min(5, Math.max(1, num(fm.level, 1))),
+			}))
+			.sort((a, b) => a.name.localeCompare(b.name));
 	}
 
 	drills(): Drill[] {
 		return this.notesOf(NOTE_KIND.drill)
 			.map(({ file, fm }) => ({
 				file,
-				nome: file.basename,
-				posicoes: asArray(fm.posicoes).map(linkName).filter(Boolean),
-				frequencia: num(fm.frequencia_semanal),
-				execucoes: asArray(fm.execucoes)
+				name: file.basename,
+				positions: asArray(fm.positions).map(linkName).filter(Boolean),
+				weeklyTarget: num(fm.weekly_target),
+				sessions: asArray(fm.sessions)
 					.map(parseDate)
 					.filter((m): m is Moment => !!m)
 					.sort((a, b) => b.valueOf() - a.valueOf()),
 			}))
-			.sort((a, b) => a.nome.localeCompare(b.nome));
+			.sort((a, b) => a.name.localeCompare(b.name));
 	}
 
-	metas(): Meta[] {
-		return this.notesOf(NOTE_KIND.meta)
+	goals(): Goal[] {
+		return this.notesOf(NOTE_KIND.goal)
 			.map(({ file, fm }) => ({
 				file,
-				titulo: file.basename,
-				categoria: String(fm.categoria ?? "Outro"),
-				horizonte: String(fm.horizonte ?? ""),
-				status: String(fm.status ?? "Ativa"),
-				metrica: String(fm.metrica ?? "checklist"),
-				alvo: num(fm.alvo),
-				inicio: parseDate(fm.inicio),
-				prazo: parseDate(fm.prazo),
-				progressoManual: num(fm.progresso),
+				title: file.basename,
+				category: String(fm.category ?? "Other"),
+				horizon: String(fm.horizon ?? ""),
+				status: String(fm.status ?? "active"),
+				metric: String(fm.metric ?? "checklist"),
+				target: num(fm.target),
+				start: parseDate(fm.start),
+				deadline: parseDate(fm.deadline),
+				manualProgress: num(fm.progress),
 			}))
-			.sort((a, b) => {
-				const pa = a.prazo?.valueOf() ?? Infinity;
-				const pb = b.prazo?.valueOf() ?? Infinity;
-				return pa - pb;
-			});
+			.sort((a, b) => (a.deadline?.valueOf() ?? Infinity) - (b.deadline?.valueOf() ?? Infinity));
 	}
 
-	progressoMeta(meta: Meta, treinos = this.treinos()): ProgressoMeta {
-		const dentroDoPeriodo = (t: Treino) =>
-			(!meta.inicio || !t.data.isBefore(meta.inicio, "day")) &&
-			(!meta.prazo || !t.data.isAfter(meta.prazo, "day"));
+	goalProgress(goal: Goal, trainings = this.trainings()): GoalProgress {
+		const inPeriod = (tr: Training) =>
+			(!goal.start || !tr.date.isBefore(goal.start, "day")) &&
+			(!goal.deadline || !tr.date.isAfter(goal.deadline, "day"));
 
-		let atual = 0;
-		let alvo = meta.alvo;
-		let unidade = "";
+		let current = 0;
+		let target = goal.target;
+		let unit = "";
 
-		switch (meta.metrica) {
-			case "treinos":
-				atual = treinos.filter(dentroDoPeriodo).length;
-				unidade = " treinos";
+		switch (goal.metric) {
+			case "sessions":
+				current = trainings.filter(inPeriod).length;
+				unit = t("dash.unitSessions");
 				break;
-			case "horas":
-				atual =
-					Math.round(
-						(treinos.filter(dentroDoPeriodo).reduce((s, t) => s + t.duracao, 0) / 60) * 10
-					) / 10;
-				unidade = " h";
+			case "hours":
+				current =
+					Math.round((trainings.filter(inPeriod).reduce((s, tr) => s + tr.duration, 0) / 60) * 10) / 10;
+				unit = t("dash.unitHours");
 				break;
 			case "manual":
-				atual = meta.progressoManual;
+				current = goal.manualProgress;
 				break;
 			default: {
-				const tasks = (this.app.metadataCache.getFileCache(meta.file)?.listItems ?? []).filter(
+				const tasks = (this.app.metadataCache.getFileCache(goal.file)?.listItems ?? []).filter(
 					(li) => li.task !== undefined
 				);
-				alvo = tasks.length;
-				atual = tasks.filter((li) => li.task !== " ").length;
-				unidade = " tarefas";
+				target = tasks.length;
+				current = tasks.filter((li) => li.task !== " ").length;
+				unit = t("dash.unitTasks");
 			}
 		}
 
-		const pct = meta.status === "Concluída" ? 1 : alvo > 0 ? Math.min(1, atual / alvo) : 0;
-		return { atual, alvo, pct, label: `${atual}/${alvo}${unidade}` };
+		const pct = goal.status === "done" ? 1 : target > 0 ? Math.min(1, current / target) : 0;
+		return { current, target, pct, label: `${current}/${target}${unit}` };
 	}
 
-	/** Semanas consecutivas (até a atual) batendo a meta semanal de treinos. */
-	sequenciaSemanas(treinos = this.treinos()): number {
-		const meta = this.settings().metaSemanal;
-		const porSemana = new Map<string, number>();
-		for (const t of treinos) {
-			const k = t.data.format("GGGG-[W]WW");
-			porSemana.set(k, (porSemana.get(k) ?? 0) + 1);
+	/** Consecutive weeks (up to the current one) meeting the weekly training goal. */
+	weekStreak(trainings = this.trainings()): number {
+		const goal = this.settings().weeklyGoal;
+		const perWeek = new Map<string, number>();
+		for (const tr of trainings) {
+			const k = tr.date.format("GGGG-[W]WW");
+			perWeek.set(k, (perWeek.get(k) ?? 0) + 1);
 		}
-		const semana = moment().startOf("isoWeek");
-		const bateu = (m: Moment) => (porSemana.get(m.format("GGGG-[W]WW")) ?? 0) >= meta;
-		// a semana atual ainda está em andamento: só conta se já bateu
-		if (!bateu(semana)) semana.subtract(1, "week");
+		const week = moment().startOf("isoWeek");
+		const met = (m: Moment) => (perWeek.get(m.format("GGGG-[W]WW")) ?? 0) >= goal;
+		// the current week is still in progress: only count it once it is met
+		if (!met(week)) week.subtract(1, "week");
 		let streak = 0;
-		while (bateu(semana)) {
+		while (met(week)) {
 			streak++;
-			semana.subtract(1, "week");
+			week.subtract(1, "week");
 		}
 		return streak;
 	}
 
-	/** Contagem de vezes que cada técnica aparece nos treinos. */
-	tecnicasMaisTreinadas(treinos = this.treinos(), limite = 8): [string, number][] {
-		const cont = new Map<string, number>();
-		for (const t of treinos) for (const n of t.tecnicas) cont.set(n, (cont.get(n) ?? 0) + 1);
-		return [...cont.entries()].sort((a, b) => b[1] - a[1]).slice(0, limite);
+	/** How many times each technique appears in training notes. */
+	topTechniques(trainings = this.trainings(), limit = 8): [string, number][] {
+		const count = new Map<string, number>();
+		for (const tr of trainings) for (const n of tr.techniques) count.set(n, (count.get(n) ?? 0) + 1);
+		return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit);
 	}
 }

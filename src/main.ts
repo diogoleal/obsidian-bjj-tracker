@@ -1,17 +1,11 @@
 import { MarkdownRenderChild, Notice, Plugin, TFile, debounce } from "obsidian";
 import { NOTE_KIND, VIEW_TYPE_DASHBOARD } from "./constants";
 import { BjjData } from "./data";
-import { DashboardView, SECOES, Secao, renderDashboard } from "./dashboard";
-import {
-	DrillModal,
-	FileSuggestModal,
-	MetaModal,
-	NivelModal,
-	PosicaoModal,
-	TreinoModal,
-} from "./modals";
+import { DashboardView, SECTIONS, SECTION_ALIASES, Section, renderDashboard } from "./dashboard";
+import { t } from "./i18n";
+import { DrillModal, FileSuggestModal, GoalModal, LevelModal, PositionModal, TrainingModal } from "./modals";
 import { NoteFactory } from "./notes";
-import { BjjSettingTab, BjjSettings, DEFAULT_SETTINGS } from "./settings";
+import { BjjSettingTab, BjjSettings, defaultSettings } from "./settings";
 
 export default class BjjPlugin extends Plugin {
 	settings!: BjjSettings;
@@ -25,72 +19,67 @@ export default class BjjPlugin extends Plugin {
 
 		this.registerView(VIEW_TYPE_DASHBOARD, (leaf) => new DashboardView(leaf, this));
 
-		this.addRibbonIcon("swords", "Painel BJJ", () => this.abrirPainel());
-		this.addRibbonIcon("plus-circle", "Registrar treino de BJJ", () => new TreinoModal(this).open());
+		this.addRibbonIcon("swords", t("plugin.dashboard"), () => this.openDashboard());
+		this.addRibbonIcon("plus-circle", t("ribbon.logTraining"), () => new TrainingModal(this).open());
 
-		this.addCommand({ id: "abrir-painel", name: "Abrir painel", callback: () => this.abrirPainel() });
-		this.addCommand({ id: "registrar-treino", name: "Registrar treino", callback: () => new TreinoModal(this).open() });
-		this.addCommand({ id: "nova-posicao", name: "Nova posição / técnica", callback: () => new PosicaoModal(this).open() });
-		this.addCommand({ id: "novo-drill", name: "Novo drill", callback: () => new DrillModal(this).open() });
-		this.addCommand({ id: "nova-meta", name: "Nova meta", callback: () => new MetaModal(this).open() });
+		this.addCommand({ id: "open-dashboard", name: t("cmd.openDashboard"), callback: () => this.openDashboard() });
+		this.addCommand({ id: "log-training", name: t("cmd.logTraining"), callback: () => new TrainingModal(this).open() });
+		this.addCommand({ id: "new-position", name: t("cmd.newPosition"), callback: () => new PositionModal(this).open() });
+		this.addCommand({ id: "new-drill", name: t("cmd.newDrill"), callback: () => new DrillModal(this).open() });
+		this.addCommand({ id: "new-goal", name: t("cmd.newGoal"), callback: () => new GoalModal(this).open() });
 
 		this.addCommand({
-			id: "registrar-drill",
-			name: "Registrar execução de drill (hoje)",
+			id: "log-drill-session",
+			name: t("cmd.logDrill"),
 			callback: () => {
 				const files = this.store.drills().map((d) => d.file);
-				if (!files.length) return new Notice("Nenhum drill cadastrado.");
-				new FileSuggestModal(this.app, files, "Qual drill você fez?", (f) =>
-					this.notes.registrarExecucaoDrill(f)
-				).open();
+				if (!files.length) return void new Notice(t("cmd.noDrills"));
+				new FileSuggestModal(this.app, files, t("cmd.whichDrill"), (f) => this.notes.logDrillSession(f)).open();
 			},
 		});
 
 		this.addCommand({
-			id: "nivel-posicao",
-			name: "Alterar nível de domínio de uma posição",
+			id: "set-position-level",
+			name: t("cmd.positionLevel"),
 			callback: () => {
-				const escolherNivel = (f: TFile) =>
-					new NivelModal(this.app, (n) => this.notes.atualizarNivelPosicao(f, n)).open();
-				const ativa = this.app.workspace.getActiveFile();
-				if (ativa && this.kindOf(ativa) === NOTE_KIND.posicao) return escolherNivel(ativa);
-				const files = this.store.posicoes().map((p) => p.file);
-				if (!files.length) return new Notice("Nenhuma posição cadastrada.");
-				new FileSuggestModal(this.app, files, "Qual posição?", escolherNivel).open();
+				const pickLevel = (f: TFile) => new LevelModal(this.app, (n) => this.notes.setPositionLevel(f, n)).open();
+				const active = this.app.workspace.getActiveFile();
+				if (active && this.kindOf(active) === NOTE_KIND.position) return pickLevel(active);
+				const files = this.store.positions().map((p) => p.file);
+				if (!files.length) return void new Notice(t("cmd.noPositions"));
+				new FileSuggestModal(this.app, files, t("cmd.whichPosition"), pickLevel).open();
 			},
 		});
 
 		this.addCommand({
-			id: "concluir-meta",
-			name: "Concluir meta",
+			id: "complete-goal",
+			name: t("cmd.completeGoal"),
 			callback: () => {
-				const ativa = this.app.workspace.getActiveFile();
-				if (ativa && this.kindOf(ativa) === NOTE_KIND.meta)
-					return this.notes.definirStatusMeta(ativa, "Concluída");
-				const files = this.store.metas().filter((m) => m.status === "Ativa").map((m) => m.file);
-				if (!files.length) return new Notice("Nenhuma meta ativa.");
-				new FileSuggestModal(this.app, files, "Qual meta você concluiu? 🏆", (f) =>
-					this.notes.definirStatusMeta(f, "Concluída")
-				).open();
+				const active = this.app.workspace.getActiveFile();
+				if (active && this.kindOf(active) === NOTE_KIND.goal) return void this.notes.setGoalStatus(active, "done");
+				const files = this.store.goals().filter((g) => g.status === "active").map((g) => g.file);
+				if (!files.length) return void new Notice(t("cmd.noActiveGoals"));
+				new FileSuggestModal(this.app, files, t("cmd.whichGoal"), (f) => this.notes.setGoalStatus(f, "done")).open();
 			},
 		});
 
 		/*
-		 * Bloco embutível em qualquer nota:
+		 * Embeddable block for any note:
 		 * ```bjj
-		 * resumo
-		 * metas
+		 * summary
+		 * goals
 		 * ```
-		 * Sem conteúdo = painel completo. Seções: resumo, heatmap, metas, drills, posicoes, tecnicas, recentes.
+		 * Empty = full dashboard. Sections: summary, heatmap, goals, drills, positions, techniques, recent.
 		 */
 		this.registerMarkdownCodeBlockProcessor("bjj", (source, el, ctx) => {
-			const pedidas = source
+			const requested = source
 				.split(/[\n,]/)
 				.map((s) => s.trim().toLowerCase())
-				.filter((s): s is Secao => (SECOES as readonly string[]).includes(s));
-			const secoes = pedidas.length ? pedidas : SECOES;
+				.map((s) => SECTION_ALIASES[s] ?? s)
+				.filter((s): s is Section => (SECTIONS as readonly string[]).includes(s));
+			const sections = requested.length ? requested : SECTIONS;
 			const child = new MarkdownRenderChild(el);
-			const render = () => renderDashboard(this, el, secoes);
+			const render = () => renderDashboard(this, el, sections);
 			const refresh = debounce(render, 500, true);
 			child.registerEvent(this.app.metadataCache.on("changed", (f) => f.path !== ctx.sourcePath && refresh()));
 			ctx.addChild(child);
@@ -100,24 +89,22 @@ export default class BjjPlugin extends Plugin {
 		this.addSettingTab(new BjjSettingTab(this.app, this));
 	}
 
-	onunload() {}
-
-	private kindOf(f: TFile): string | undefined {
+	private kindOf(f: TFile): unknown {
 		return this.app.metadataCache.getFileCache(f)?.frontmatter?.bjj;
 	}
 
-	async abrirPainel() {
+	async openDashboard() {
 		const { workspace } = this.app;
 		let leaf = workspace.getLeavesOfType(VIEW_TYPE_DASHBOARD)[0];
 		if (!leaf) {
 			leaf = workspace.getLeaf("tab");
 			await leaf.setViewState({ type: VIEW_TYPE_DASHBOARD, active: true });
 		}
-		workspace.revealLeaf(leaf);
+		await workspace.revealLeaf(leaf);
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign(defaultSettings(), await this.loadData());
 	}
 
 	async saveSettings() {

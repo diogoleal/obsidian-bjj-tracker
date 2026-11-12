@@ -1,33 +1,44 @@
 import { ItemView, TFile, WorkspaceLeaf, debounce, moment, setIcon } from "obsidian";
-import { CORES_FAIXA, NIVEIS, VIEW_TYPE_DASHBOARD } from "./constants";
-import { DATE_FMT, Treino } from "./data";
+import { BELT_COLORS, LEVELS, VIEW_TYPE_DASHBOARD } from "./constants";
+import { DATE_FMT, Position, Training } from "./data";
+import { L, t } from "./i18n";
 import type BjjPlugin from "./main";
-import { DrillModal, MetaModal, PosicaoModal, TreinoModal } from "./modals";
+import { DrillModal, GoalModal, PositionModal, TrainingModal } from "./modals";
 
-export const SECOES = ["resumo", "heatmap", "metas", "drills", "posicoes", "tecnicas", "recentes"] as const;
-export type Secao = (typeof SECOES)[number];
+export const SECTIONS = ["summary", "heatmap", "goals", "drills", "positions", "techniques", "recent"] as const;
+export type Section = (typeof SECTIONS)[number];
 
-const horas = (min: number) => {
+/** Portuguese aliases accepted in the ```bjj``` code block. */
+export const SECTION_ALIASES: Record<string, Section> = {
+	resumo: "summary",
+	metas: "goals",
+	posicoes: "positions",
+	posições: "positions",
+	tecnicas: "techniques",
+	técnicas: "techniques",
+	recentes: "recent",
+};
+
+const hours = (min: number) => {
 	const h = Math.floor(min / 60);
 	const m = Math.round(min % 60);
 	return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
 };
 
-/** Renderiza o painel (ou só algumas seções) dentro de `root`. Usado pela view e pelo bloco ```bjj```. */
-export function renderDashboard(plugin: BjjPlugin, root: HTMLElement, secoes: readonly Secao[] = SECOES) {
-	const { app, store: data, settings } = plugin;
+/** Renders the dashboard (or some sections of it) into `root`. Used by the view and the ```bjj``` block. */
+export function renderDashboard(plugin: BjjPlugin, root: HTMLElement, sections: readonly Section[] = SECTIONS) {
+	const { app, store, settings } = plugin;
 	root.empty();
 	root.addClass("bjj-dashboard");
 
-	const treinos = data.treinos();
-	const hoje = moment().startOf("day");
+	const trainings = store.trainings();
+	const today = moment().startOf("day");
 
-	const open = (f: TFile) => app.workspace.getLeaf(false).openFile(f);
 	const link = (parent: HTMLElement, f: TFile, text = f.basename) => {
 		const a = parent.createEl("a", { text, cls: "bjj-link", href: "#" });
 		a.onclick = (e) => {
 			e.preventDefault();
-			open(f);
+			void app.workspace.getLeaf(false).openFile(f);
 		};
 		return a;
 	};
@@ -41,30 +52,28 @@ export function renderDashboard(plugin: BjjPlugin, root: HTMLElement, secoes: re
 	const empty = (parent: HTMLElement, text: string) => parent.createDiv({ cls: "bjj-empty", text });
 	const bar = (parent: HTMLElement, pct: number, cls = "") => {
 		const b = parent.createDiv({ cls: `bjj-bar ${cls}` });
-		b.createDiv({ cls: "bjj-bar-fill" }).style.width = `${Math.round(pct * 100)}%`;
+		b.createDiv({ cls: "bjj-bar-fill" }).setCssStyles({ width: `${Math.round(Math.min(1, pct) * 100)}%` });
 		return b;
 	};
 
-	/* ---- Resumo ---- */
-	if (secoes.includes("resumo")) {
+	/* ---- Summary ---- */
+	if (sections.includes("summary")) {
 		const header = root.createDiv({ cls: "bjj-header" });
-		const faixa = header.createDiv({ cls: "bjj-belt" });
-		faixa.style.setProperty("--belt-color", CORES_FAIXA[settings.faixa] ?? "#ccc");
-		const tarja = faixa.createDiv({ cls: `bjj-belt-bar ${settings.faixa === "Preta" ? "is-black" : ""}` });
-		for (let i = 0; i < settings.graus; i++) tarja.createDiv({ cls: "bjj-stripe" });
+		const belt = header.createDiv({ cls: "bjj-belt" });
+		belt.setCssProps({ "--belt-color": BELT_COLORS[settings.belt] ?? "#ccc" });
+		const tab = belt.createDiv({ cls: `bjj-belt-bar ${settings.belt === "black" ? "is-black" : ""}` });
+		for (let i = 0; i < settings.stripes; i++) tab.createDiv({ cls: "bjj-stripe" });
 
 		const info = header.createDiv({ cls: "bjj-belt-info" });
+		const beltName = t("dash.beltName", { belt: L.belt(settings.belt) });
 		info.createDiv({
 			cls: "bjj-belt-name",
-			text: `Faixa ${settings.faixa}${settings.graus ? ` · ${settings.graus}º grau` : ""}`,
+			text: settings.stripes ? `${beltName} · ${t("dash.stripes", { n: settings.stripes })}` : beltName,
 		});
-		if (settings.dataGraduacao) {
-			const desde = moment(settings.dataGraduacao, DATE_FMT);
-			const treinosDesde = treinos.filter((t) => !t.data.isBefore(desde)).length;
-			info.createDiv({
-				cls: "bjj-muted",
-				text: `Há ${desde.fromNow(true)} na graduação atual · ${treinosDesde} treinos desde então`,
-			});
+		if (settings.promotionDate) {
+			const since = moment(settings.promotionDate, DATE_FMT);
+			const count = trainings.filter((tr) => !tr.date.isBefore(since)).length;
+			info.createDiv({ cls: "bjj-muted", text: t("dash.sinceRank", { duration: since.fromNow(true), n: count }) });
 		}
 
 		const actions = header.createDiv({ cls: "bjj-actions" });
@@ -74,16 +83,16 @@ export function renderDashboard(plugin: BjjPlugin, root: HTMLElement, secoes: re
 			b.createSpan({ text });
 			b.onclick = fn;
 		};
-		btn("Treino", "plus", () => new TreinoModal(plugin).open(), true);
-		btn("Posição", "map-pin", () => new PosicaoModal(plugin).open());
-		btn("Drill", "repeat", () => new DrillModal(plugin).open());
-		btn("Meta", "target", () => new MetaModal(plugin).open());
+		btn(t("dash.btnTraining"), "plus", () => new TrainingModal(plugin).open(), true);
+		btn(t("dash.btnPosition"), "map-pin", () => new PositionModal(plugin).open());
+		btn(t("dash.btnDrill"), "repeat", () => new DrillModal(plugin).open());
+		btn(t("dash.btnGoal"), "target", () => new GoalModal(plugin).open());
 
-		const semana = treinos.filter((t) => t.data.isSame(hoje, "isoWeek"));
-		const mes = treinos.filter((t) => t.data.isSame(hoje, "month"));
-		const ano = treinos.filter((t) => t.data.isSame(hoje, "year"));
-		const minutos = (ts: Treino[]) => ts.reduce((s, t) => s + t.duracao, 0);
-		const streak = data.sequenciaSemanas(treinos);
+		const week = trainings.filter((tr) => tr.date.isSame(today, "isoWeek"));
+		const month = trainings.filter((tr) => tr.date.isSame(today, "month"));
+		const year = trainings.filter((tr) => tr.date.isSame(today, "year"));
+		const minutes = (ts: Training[]) => ts.reduce((s, tr) => s + tr.duration, 0);
+		const streak = store.weekStreak(trainings);
 
 		const cards = root.createDiv({ cls: "bjj-cards" });
 		const card = (label: string, value: string, sub = "") => {
@@ -93,202 +102,205 @@ export function renderDashboard(plugin: BjjPlugin, root: HTMLElement, secoes: re
 			if (sub) c.createDiv({ cls: "bjj-card-sub", text: sub });
 			return c;
 		};
-		const cSemana = card("Esta semana", `${semana.length}/${settings.metaSemanal}`, horas(minutos(semana)));
-		bar(cSemana, semana.length / settings.metaSemanal, "is-small");
-		card("Este mês", String(mes.length), horas(minutos(mes)));
-		card("Este ano", String(ano.length), horas(minutos(ano)));
-		card("Total", String(treinos.length), horas(minutos(treinos)));
-		card("Sequência", `${streak} ${streak === 1 ? "semana" : "semanas"}`, `≥ ${settings.metaSemanal} treinos/semana`);
-
-		const rolas = mes.reduce((s, t) => s + t.rolas, 0);
-		const fFeitas = mes.reduce((s, t) => s + t.finalizacoesFeitas, 0);
-		const fSofridas = mes.reduce((s, t) => s + t.finalizacoesSofridas, 0);
-		card("Rolas no mês", String(rolas), `${fFeitas} finalizou · ${fSofridas} foi finalizado`);
+		const weekCard = card(t("dash.thisWeek"), `${week.length}/${settings.weeklyGoal}`, hours(minutes(week)));
+		bar(weekCard, week.length / settings.weeklyGoal, "is-small");
+		card(t("dash.thisMonth"), String(month.length), hours(minutes(month)));
+		card(t("dash.thisYear"), String(year.length), hours(minutes(year)));
+		card(t("dash.total"), String(trainings.length), hours(minutes(trainings)));
+		card(t("dash.streak"), t("dash.weeks", { n: streak }), t("dash.perWeek", { n: settings.weeklyGoal }));
+		card(
+			t("dash.rollsMonth"),
+			String(month.reduce((s, tr) => s + tr.rolls, 0)),
+			t("dash.subsSummary", {
+				given: month.reduce((s, tr) => s + tr.subsGiven, 0),
+				received: month.reduce((s, tr) => s + tr.subsReceived, 0),
+			})
+		);
 	}
 
 	/* ---- Heatmap ---- */
-	if (secoes.includes("heatmap")) {
-		const s = section("Frequência (últimas 26 semanas)", "calendar-days");
-		const porDia = new Map<string, number>();
-		for (const t of treinos) {
-			const k = t.data.format(DATE_FMT);
-			porDia.set(k, (porDia.get(k) ?? 0) + Math.max(t.duracao, 1));
+	if (sections.includes("heatmap")) {
+		const s = section(t("dash.frequency"), "calendar-days");
+		const perDay = new Map<string, number>();
+		for (const tr of trainings) {
+			const k = tr.date.format(DATE_FMT);
+			perDay.set(k, (perDay.get(k) ?? 0) + Math.max(tr.duration, 1));
 		}
 		const grid = s.createDiv({ cls: "bjj-heatmap" });
-		const inicio = hoje.clone().startOf("isoWeek").subtract(25, "weeks");
+		const start = today.clone().startOf("isoWeek").subtract(25, "weeks");
 		for (let w = 0; w < 26; w++) {
 			const col = grid.createDiv({ cls: "bjj-heat-col" });
 			for (let d = 0; d < 7; d++) {
-				const dia = inicio.clone().add(w, "weeks").add(d, "days");
-				const min = porDia.get(dia.format(DATE_FMT)) ?? 0;
+				const day = start.clone().add(w, "weeks").add(d, "days");
+				const min = perDay.get(day.format(DATE_FMT)) ?? 0;
 				const lvl = min === 0 ? 0 : min < 60 ? 1 : min < 90 ? 2 : min < 150 ? 3 : 4;
 				const cell = col.createDiv({ cls: `bjj-heat-cell lvl-${lvl}` });
-				if (dia.isAfter(hoje)) cell.addClass("is-future");
-				cell.setAttr("aria-label", `${dia.format("DD/MM/YYYY")}${min ? ` · ${horas(min)}` : ""}`);
+				if (day.isAfter(today)) cell.addClass("is-future");
+				cell.setAttr("aria-label", `${day.format(t("date.long"))}${min ? ` · ${hours(min)}` : ""}`);
 			}
 		}
-		const porTipo = new Map<string, number>();
-		const ultimos90 = treinos.filter((t) => t.data.isAfter(hoje.clone().subtract(90, "days")));
-		for (const t of ultimos90) porTipo.set(t.tipo, (porTipo.get(t.tipo) ?? 0) + t.duracao);
-		if (porTipo.size) {
-			const total = [...porTipo.values()].reduce((a, b) => a + b, 0) || 1;
-			const tipos = s.createDiv({ cls: "bjj-types" });
-			tipos.createDiv({ cls: "bjj-muted", text: "Tempo por tipo (90 dias)" });
-			[...porTipo.entries()]
+		const perType = new Map<string, number>();
+		for (const tr of trainings.filter((x) => x.date.isAfter(today.clone().subtract(90, "days"))))
+			perType.set(tr.type, (perType.get(tr.type) ?? 0) + tr.duration);
+		if (perType.size) {
+			const total = [...perType.values()].reduce((a, b) => a + b, 0) || 1;
+			const types = s.createDiv({ cls: "bjj-types" });
+			types.createDiv({ cls: "bjj-muted", text: t("dash.timeByType") });
+			[...perType.entries()]
 				.sort((a, b) => b[1] - a[1])
-				.forEach(([tipo, min]) => {
-					const row = tipos.createDiv({ cls: "bjj-row" });
-					row.createSpan({ cls: "bjj-row-label", text: tipo });
+				.forEach(([type, min]) => {
+					const row = types.createDiv({ cls: "bjj-row" });
+					row.createSpan({ cls: "bjj-row-label", text: type });
 					bar(row, min / total);
-					row.createSpan({ cls: "bjj-row-value", text: horas(min) });
+					row.createSpan({ cls: "bjj-row-value", text: hours(min) });
 				});
 		}
 	}
 
-	/* ---- Metas ---- */
-	if (secoes.includes("metas")) {
-		const s = section("Metas ativas", "target");
-		const metas = data.metas().filter((m) => m.status === "Ativa");
-		if (!metas.length) empty(s, "Nenhuma meta ativa. Crie uma com o botão “Meta”.");
-		for (const m of metas) {
-			const p = data.progressoMeta(m, treinos);
+	/* ---- Goals ---- */
+	if (sections.includes("goals")) {
+		const s = section(t("dash.activeGoals"), "target");
+		const all = store.goals();
+		const active = all.filter((g) => g.status === "active");
+		if (!active.length) empty(s, t("dash.noGoals"));
+		for (const g of active) {
+			const p = store.goalProgress(g, trainings);
 			const row = s.createDiv({ cls: "bjj-goal" });
 			const top = row.createDiv({ cls: "bjj-goal-top" });
-			link(top, m.file, m.titulo);
-			if (m.horizonte) top.createSpan({ cls: "bjj-badge", text: m.horizonte });
-			top.createSpan({ cls: "bjj-badge is-muted", text: m.categoria });
-			if (m.prazo) {
-				const dias = m.prazo.diff(hoje, "days");
+			link(top, g.file, g.title);
+			if (g.horizon) top.createSpan({ cls: "bjj-badge", text: g.horizon });
+			top.createSpan({ cls: "bjj-badge is-muted", text: g.category });
+			if (g.deadline) {
+				const days = g.deadline.diff(today, "days");
 				top.createSpan({
-					cls: `bjj-deadline ${dias < 0 ? "is-late" : dias <= 14 ? "is-soon" : ""}`,
-					text: dias < 0 ? `atrasada ${-dias}d` : dias === 0 ? "vence hoje" : `${dias}d restantes`,
+					cls: `bjj-deadline ${days < 0 ? "is-late" : days <= 14 ? "is-soon" : ""}`,
+					text: days < 0 ? t("dash.late", { n: -days }) : days === 0 ? t("dash.dueToday") : t("dash.daysLeft", { n: days }),
 				});
 			}
 			const bottom = row.createDiv({ cls: "bjj-goal-bottom" });
 			bar(bottom, p.pct, p.pct >= 1 ? "is-done" : "");
 			bottom.createSpan({ cls: "bjj-row-value", text: `${p.label} · ${Math.round(p.pct * 100)}%` });
 			const acts = bottom.createDiv({ cls: "bjj-mini-actions" });
-			if (m.metrica === "manual") {
-				const plus = acts.createEl("button", { text: "+1", attr: { "aria-label": "Somar 1" } });
-				plus.onclick = () => plugin.notes.incrementarMeta(m.file, 1);
+			if (g.metric === "manual") {
+				acts.createEl("button", { text: "+1", attr: { "aria-label": t("dash.addOne") } }).onclick = () =>
+					plugin.notes.incrementGoal(g.file, 1);
 			}
-			const done = acts.createEl("button", { attr: { "aria-label": "Marcar como concluída" } });
+			const done = acts.createEl("button", { attr: { "aria-label": t("dash.markDone") } });
 			setIcon(done, "check");
-			done.onclick = () => plugin.notes.definirStatusMeta(m.file, "Concluída");
+			done.onclick = () => plugin.notes.setGoalStatus(g.file, "done");
 		}
-		const concluidas = data.metas().filter((m) => m.status === "Concluída").length;
-		if (concluidas) s.createDiv({ cls: "bjj-muted", text: `🏆 ${concluidas} meta(s) concluída(s) até agora` });
+		const completed = all.filter((g) => g.status === "done").length;
+		if (completed) s.createDiv({ cls: "bjj-muted", text: t("dash.completedGoals", { n: completed }) });
 	}
 
 	/* ---- Drills ---- */
-	if (secoes.includes("drills")) {
-		const s = section("Drills da semana", "repeat");
-		const drills = data.drills();
-		if (!drills.length) empty(s, "Nenhum drill cadastrado.");
+	if (sections.includes("drills")) {
+		const s = section(t("dash.weekDrills"), "repeat");
+		const drills = store.drills();
+		if (!drills.length) empty(s, t("dash.noDrills"));
 		for (const d of drills) {
-			const feitos = d.execucoes.filter((e) => e.isSame(hoje, "isoWeek")).length;
+			const done = d.sessions.filter((e) => e.isSame(today, "isoWeek")).length;
+			const target = d.weeklyTarget || 1;
 			const row = s.createDiv({ cls: "bjj-row" });
-			const label = row.createSpan({ cls: "bjj-row-label" });
-			link(label, d.file, d.nome);
-			const alvo = d.frequencia || 1;
-			bar(row, feitos / alvo, feitos >= alvo ? "is-done" : "");
-			row.createSpan({
-				cls: "bjj-row-value",
-				text: `${feitos}/${d.frequencia || "–"}${d.execucoes[0] ? ` · último ${d.execucoes[0].fromNow()}` : ""}`,
-			});
-			const b = row.createEl("button", { cls: "bjj-icon-btn", attr: { "aria-label": "Registrar execução hoje" } });
+			link(row.createSpan({ cls: "bjj-row-label" }), d.file, d.name);
+			bar(row, done / target, done >= target ? "is-done" : "");
+			const last = d.sessions[0] ? ` · ${t("dash.lastDone", { when: d.sessions[0].fromNow() })}` : "";
+			row.createSpan({ cls: "bjj-row-value", text: `${done}/${d.weeklyTarget || "–"}${last}` });
+			const b = row.createEl("button", { cls: "bjj-icon-btn", attr: { "aria-label": t("dash.logToday") } });
 			setIcon(b, "check");
-			b.onclick = () => plugin.notes.registrarExecucaoDrill(d.file);
+			b.onclick = () => plugin.notes.logDrillSession(d.file);
 		}
 	}
 
-	/* ---- Posições ---- */
-	if (secoes.includes("posicoes")) {
-		const s = section("Repertório de posições", "map-pin");
-		const posicoes = data.posicoes();
-		if (!posicoes.length) {
-			empty(s, "Nenhuma posição cadastrada.");
+	/* ---- Positions ---- */
+	if (sections.includes("positions")) {
+		const s = section(t("dash.repertoire"), "map-pin");
+		const positions = store.positions();
+		if (!positions.length) {
+			empty(s, t("dash.noPositions"));
 		} else {
-			const niveis = s.createDiv({ cls: "bjj-levels" });
-			for (let n = 1; n <= 5; n++) {
-				const qtd = posicoes.filter((p) => p.nivel === n).length;
-				const c = niveis.createDiv({ cls: `bjj-level lvl-${n}` });
-				c.createDiv({ cls: "bjj-card-value", text: String(qtd) });
-				c.createDiv({ cls: "bjj-card-label", text: `${n} · ${NIVEIS[n]}` });
+			const levels = s.createDiv({ cls: "bjj-levels" });
+			for (const n of LEVELS) {
+				const c = levels.createDiv({ cls: `bjj-level lvl-${n}` });
+				c.createDiv({ cls: "bjj-card-value", text: String(positions.filter((p) => p.level === n).length) });
+				c.createDiv({ cls: "bjj-card-label", text: `${n} · ${L.level(n)}` });
 			}
-			const porCategoria = new Map<string, typeof posicoes>();
-			for (const p of posicoes) porCategoria.set(p.categoria, [...(porCategoria.get(p.categoria) ?? []), p]);
+			const byCategory = new Map<string, Position[]>();
+			for (const p of positions) byCategory.set(p.category, [...(byCategory.get(p.category) ?? []), p]);
 			const cats = s.createDiv({ cls: "bjj-categories" });
-			[...porCategoria.entries()]
+			[...byCategory.entries()]
 				.sort((a, b) => b[1].length - a[1].length)
 				.forEach(([cat, ps]) => {
 					const det = cats.createEl("details", { cls: "bjj-category" });
 					det.createEl("summary", { text: `${cat} (${ps.length})` });
 					const ul = det.createEl("ul");
-					ps.sort((a, b) => b.nivel - a.nivel).forEach((p) => {
+					ps.sort((a, b) => b.level - a.level).forEach((p) => {
 						const li = ul.createEl("li");
-						link(li, p.file, p.nome);
-						li.createSpan({ cls: `bjj-dots lvl-${p.nivel}`, text: " " + "●".repeat(p.nivel) + "○".repeat(5 - p.nivel) });
+						link(li, p.file, p.name);
+						li.createSpan({ cls: `bjj-dots lvl-${p.level}`, text: " " + "●".repeat(p.level) + "○".repeat(5 - p.level) });
 					});
 				});
 
-			// Revisar: posições que não aparecem em treinos há mais tempo
-			const ultimaVez = new Map<string, number>();
-			for (const t of treinos)
-				for (const n of t.tecnicas) if (!ultimaVez.has(n)) ultimaVez.set(n, t.data.valueOf());
-			const revisar = posicoes
-				.filter((p) => p.nivel < 5)
-				.sort((a, b) => (ultimaVez.get(a.nome) ?? 0) - (ultimaVez.get(b.nome) ?? 0))
+			// Review: positions that have gone the longest without showing up in training
+			const lastSeen = new Map<string, number>();
+			for (const tr of trainings)
+				for (const n of tr.techniques) if (!lastSeen.has(n)) lastSeen.set(n, tr.date.valueOf());
+			const review = positions
+				.filter((p) => p.level < 5)
+				.sort((a, b) => (lastSeen.get(a.name) ?? 0) - (lastSeen.get(b.name) ?? 0))
 				.slice(0, 5);
-			if (revisar.length) {
+			if (review.length) {
 				const r = s.createDiv({ cls: "bjj-review" });
-				r.createDiv({ cls: "bjj-muted", text: "Para revisar (há mais tempo sem treinar):" });
+				r.createDiv({ cls: "bjj-muted", text: t("dash.toReview") });
 				const ul = r.createEl("ul");
-				for (const p of revisar) {
+				for (const p of review) {
 					const li = ul.createEl("li");
-					link(li, p.file, p.nome);
-					const u = ultimaVez.get(p.nome);
-					li.createSpan({ cls: "bjj-muted", text: u ? ` — ${moment(u).fromNow()}` : " — nunca registrada em treino" });
+					link(li, p.file, p.name);
+					const seen = lastSeen.get(p.name);
+					li.createSpan({ cls: "bjj-muted", text: seen ? ` — ${moment(seen).fromNow()}` : t("dash.neverTrained") });
 				}
 			}
 		}
 	}
 
-	/* ---- Técnicas mais treinadas ---- */
-	if (secoes.includes("tecnicas")) {
-		const top = data.tecnicasMaisTreinadas(treinos);
+	/* ---- Most trained techniques ---- */
+	if (sections.includes("techniques")) {
+		const top = store.topTechniques(trainings);
 		if (top.length) {
-			const s = section("Técnicas mais treinadas", "flame");
+			const s = section(t("dash.topTechniques"), "flame");
 			const max = top[0][1];
-			for (const [nome, qtd] of top) {
+			for (const [name, count] of top) {
 				const row = s.createDiv({ cls: "bjj-row" });
 				const label = row.createSpan({ cls: "bjj-row-label" });
-				const f = plugin.notes.findByName(nome);
-				if (f) link(label, f, nome);
-				else label.setText(nome);
-				bar(row, qtd / max);
-				row.createSpan({ cls: "bjj-row-value", text: `${qtd}x` });
+				const f = plugin.notes.findByName(name);
+				if (f) link(label, f, name);
+				else label.setText(name);
+				bar(row, count / max);
+				row.createSpan({ cls: "bjj-row-value", text: `${count}x` });
 			}
 		}
 	}
 
-	/* ---- Recentes ---- */
-	if (secoes.includes("recentes")) {
-		const s = section("Treinos recentes", "history");
-		if (!treinos.length) empty(s, "Nenhum treino registrado ainda. Bora pro tatame! 🥋");
-		const table = s.createEl("table", { cls: "bjj-table" });
-		if (treinos.length) {
+	/* ---- Recent ---- */
+	if (sections.includes("recent")) {
+		const s = section(t("dash.recent"), "history");
+		if (!trainings.length) {
+			empty(s, t("dash.noTraining"));
+		} else {
+			const table = s.createEl("table", { cls: "bjj-table" });
 			const head = table.createEl("thead").createEl("tr");
-			["Data", "Tipo", "Duração", "Intens.", "Técnicas"].forEach((h) => head.createEl("th", { text: h }));
-		}
-		const tbody = table.createEl("tbody");
-		for (const t of treinos.slice(0, 10)) {
-			const tr = tbody.createEl("tr");
-			link(tr.createEl("td"), t.file, t.data.format("DD/MM/YY"));
-			tr.createEl("td", { text: t.tipo });
-			tr.createEl("td", { text: t.duracao ? horas(t.duracao) : "–" });
-			tr.createEl("td", { text: t.intensidade ? String(t.intensidade) : "–" });
-			tr.createEl("td", { text: t.tecnicas.join(", ") || "–", cls: "bjj-muted" });
+			(["dash.colDate", "dash.colType", "dash.colDuration", "dash.colIntensity", "dash.colTechniques"] as const).forEach(
+				(k) => head.createEl("th", { text: t(k) })
+			);
+			const tbody = table.createEl("tbody");
+			for (const tr of trainings.slice(0, 10)) {
+				const row = tbody.createEl("tr");
+				link(row.createEl("td"), tr.file, tr.date.format(t("dash.dateFormat")));
+				row.createEl("td", { text: tr.type });
+				row.createEl("td", { text: tr.duration ? hours(tr.duration) : "–" });
+				row.createEl("td", { text: tr.intensity ? String(tr.intensity) : "–" });
+				row.createEl("td", { text: tr.techniques.join(", ") || "–", cls: "bjj-muted" });
+			}
 		}
 	}
 }
@@ -301,7 +313,7 @@ export class DashboardView extends ItemView {
 		return VIEW_TYPE_DASHBOARD;
 	}
 	getDisplayText() {
-		return "Painel BJJ";
+		return t("plugin.dashboard");
 	}
 	getIcon() {
 		return "swords";
@@ -317,7 +329,6 @@ export class DashboardView extends ItemView {
 	}
 
 	render() {
-		const el = this.containerEl.children[1] as HTMLElement;
-		renderDashboard(this.plugin, el);
+		renderDashboard(this.plugin, this.contentEl);
 	}
 }

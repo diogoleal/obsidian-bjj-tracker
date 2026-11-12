@@ -1,70 +1,72 @@
 import { App, Notice, TFile, moment, normalizePath } from "obsidian";
-import { NOTE_KIND, NIVEIS } from "./constants";
+import { NOTE_KIND } from "./constants";
 import { DATE_FMT, toLink } from "./data";
+import { L, t } from "./i18n";
 import { BjjSettings, folderFor } from "./settings";
 
-export interface NovoTreino {
-	data: string;
-	tipo: string;
-	duracao: number;
-	academia: string;
-	instrutor: string;
-	intensidade: number;
-	rolas: number;
-	finalizacoesFeitas: number;
-	finalizacoesSofridas: number;
-	tecnicas: string[];
+export interface NewTraining {
+	date: string;
+	type: string;
+	duration: number;
+	academy: string;
+	instructor: string;
+	intensity: number;
+	rolls: number;
+	subsGiven: number;
+	subsReceived: number;
+	techniques: string[];
 	drills: string[];
-	lesoes: string;
-	notas: string;
+	injuries: string;
+	notes: string;
 }
 
-export interface NovaPosicao {
-	nome: string;
-	categoria: string;
-	perspectiva: string;
-	nivel: number;
+export interface NewPosition {
+	name: string;
+	category: string;
+	perspective: string;
+	level: number;
 	video: string;
-	relacionadas: string[];
-	detalhes: string;
+	related: string[];
+	details: string;
 }
 
-export interface NovoDrill {
-	nome: string;
-	posicoes: string[];
-	series: number;
-	repeticoes: number;
-	tempo: number;
-	frequencia: number;
-	descricao: string;
+export interface NewDrill {
+	name: string;
+	positions: string[];
+	sets: number;
+	reps: number;
+	time: number;
+	weeklyTarget: number;
+	description: string;
 }
 
-export interface NovaMeta {
-	titulo: string;
-	categoria: string;
-	horizonte: string;
-	prazo: string;
-	metrica: string;
-	alvo: number;
-	porque: string;
-	passos: string[];
+export interface NewGoal {
+	title: string;
+	category: string;
+	horizon: string;
+	deadline: string;
+	metric: string;
+	target: number;
+	why: string;
+	steps: string[];
 }
 
 export function sanitizeFileName(name: string): string {
-	return name.replace(/[\\/:*?"<>|#^[\]]/g, "-").replace(/\s+/g, " ").trim() || "Sem título";
+	return name.replace(/[\\/:*?"<>|#^[\]]/g, "-").replace(/\s+/g, " ").trim() || "Untitled";
 }
 
 const bullets = (items: string[], fallback = "- ") =>
 	items.length ? items.map((i) => `- ${i}`).join("\n") : fallback;
 
+const today = () => moment().format(DATE_FMT);
+
 export class NoteFactory {
 	constructor(private app: App, private settings: () => BjjSettings) {}
 
 	private async ensureFolder(path: string) {
-		const parts = normalizePath(path).split("/");
 		let cur = "";
-		for (const p of parts) {
-			cur = cur ? `${cur}/${p}` : p;
+		for (const part of normalizePath(path).split("/")) {
+			cur = cur ? `${cur}/${part}` : part;
 			if (!this.app.vault.getAbstractFileByPath(cur)) await this.app.vault.createFolder(cur);
 		}
 	}
@@ -82,9 +84,9 @@ export class NoteFactory {
 			path = normalizePath(`${folder}/${base} (${i}).md`);
 		}
 		const file = await this.app.vault.create(path, body);
-		// processFrontMatter cuida da serialização YAML com segurança
+		// processFrontMatter takes care of safe YAML serialization
 		await this.app.fileManager.processFrontMatter(file, (fm) => Object.assign(fm, frontmatter));
-		if (this.settings().abrirAposCriar) {
+		if (this.settings().openAfterCreate) {
 			await this.app.workspace.getLeaf(false).openFile(file);
 		}
 		return file;
@@ -94,191 +96,194 @@ export class NoteFactory {
 		return this.app.metadataCache.getFirstLinkpathDest(name, "");
 	}
 
-	async criarTreino(t: NovoTreino): Promise<TFile> {
-		const s = this.settings();
+	async createTraining(tr: NewTraining): Promise<TFile> {
 		const fm = {
-			bjj: NOTE_KIND.treino,
-			data: t.data,
-			tipo: t.tipo,
-			duracao: t.duracao,
-			academia: t.academia,
-			instrutor: t.instrutor,
-			intensidade: t.intensidade,
-			rolas: t.rolas,
-			finalizacoes_feitas: t.finalizacoesFeitas,
-			finalizacoes_sofridas: t.finalizacoesSofridas,
-			tecnicas: t.tecnicas.map(toLink),
-			drills: t.drills.map(toLink),
-			lesoes: t.lesoes,
-			tags: ["bjj/treino"],
+			bjj: NOTE_KIND.training,
+			date: tr.date,
+			type: tr.type,
+			duration: tr.duration,
+			academy: tr.academy,
+			instructor: tr.instructor,
+			intensity: tr.intensity,
+			rolls: tr.rolls,
+			submissions_given: tr.subsGiven,
+			submissions_received: tr.subsReceived,
+			techniques: tr.techniques.map(toLink),
+			drills: tr.drills.map(toLink),
+			injuries: tr.injuries,
+			tags: ["bjj/training"],
 		};
-		const titulo = moment(t.data, DATE_FMT).format("DD/MM/YYYY");
+		const title = t("note.trainingTitle", {
+			date: moment(tr.date, DATE_FMT).format(t("date.long")),
+			type: tr.type,
+		});
 		const body = [
-			`# Treino ${titulo} — ${t.tipo}`,
+			`# ${title}`,
 			"",
-			"## Técnicas da aula",
-			bullets(t.tecnicas.map(toLink)),
+			`## ${t("note.classTechniques")}`,
+			bullets(tr.techniques.map(toLink)),
 			"",
-			"## Drills",
-			bullets(t.drills.map(toLink)),
+			`## ${t("note.drills")}`,
+			bullets(tr.drills.map(toLink)),
 			"",
-			"## Rolas",
-			"- Parceiro / faixa:",
-			"- O que funcionou:",
-			"- Onde travei:",
+			`## ${t("note.rolls")}`,
+			`- ${t("note.partner")}`,
+			`- ${t("note.whatWorked")}`,
+			`- ${t("note.whereStuck")}`,
 			"",
-			"## O que melhorar",
+			`## ${t("note.toImprove")}`,
 			"- ",
 			"",
-			"## Notas",
-			t.notas || "",
+			`## ${t("note.notes")}`,
+			tr.notes || "",
 			"",
 		].join("\n");
 
-		const file = await this.create(folderFor(s, "pastaTreinos"), `${t.data} - ${t.tipo}`, fm, body);
+		const file = await this.create(folderFor(this.settings(), "trainingFolder"), `${tr.date} - ${tr.type}`, fm, body);
 
-		for (const d of t.drills) {
+		for (const d of tr.drills) {
 			const df = this.findByName(d);
-			if (df) await this.registrarExecucaoDrill(df, t.data, false);
+			if (df) await this.logDrillSession(df, tr.date, false);
 		}
 		return file;
 	}
 
-	async criarPosicao(p: NovaPosicao): Promise<TFile> {
+	async createPosition(p: NewPosition): Promise<TFile> {
 		const fm = {
-			bjj: NOTE_KIND.posicao,
-			categoria: p.categoria,
-			perspectiva: p.perspectiva,
-			nivel: p.nivel,
+			bjj: NOTE_KIND.position,
+			category: p.category,
+			perspective: p.perspective,
+			level: p.level,
 			video: p.video,
-			relacionadas: p.relacionadas.map(toLink),
-			criado: moment().format(DATE_FMT),
-			tags: ["bjj/posicao"],
+			related: p.related.map(toLink),
+			created: today(),
+			tags: ["bjj/position"],
 		};
 		const body = [
-			`# ${p.nome}`,
+			`# ${p.name}`,
 			"",
-			`> **${p.categoria}** · ${p.perspectiva} · Nível ${p.nivel} — ${NIVEIS[p.nivel]}`,
+			`> **${p.category}** · ${p.perspective} · ${t("note.level")} ${p.level} — ${L.level(p.level)}`,
 			"",
-			"## Detalhes-chave",
-			p.detalhes || "- ",
+			`## ${t("note.keyDetails")}`,
+			p.details || "- ",
 			"",
-			"## Passo a passo",
+			`## ${t("note.stepByStep")}`,
 			"1. ",
 			"",
-			"## Erros comuns",
+			`## ${t("note.commonMistakes")}`,
 			"- ",
 			"",
-			"## Continuações / Finalizações",
+			`## ${t("note.followUps")}`,
 			"- ",
 			"",
-			"## Defesas e contra-ataques do oponente",
+			`## ${t("note.counters")}`,
 			"- ",
 			"",
-			"## Posições relacionadas",
-			bullets(p.relacionadas.map(toLink)),
+			`## ${t("note.relatedPositions")}`,
+			bullets(p.related.map(toLink)),
 			"",
-			"## Referências",
+			`## ${t("note.references")}`,
 			p.video ? `- ${p.video}` : "- ",
 			"",
 		].join("\n");
-		return this.create(folderFor(this.settings(), "pastaPosicoes"), p.nome, fm, body);
+		return this.create(folderFor(this.settings(), "positionsFolder"), p.name, fm, body);
 	}
 
-	async criarDrill(d: NovoDrill): Promise<TFile> {
+	async createDrill(d: NewDrill): Promise<TFile> {
 		const fm = {
 			bjj: NOTE_KIND.drill,
-			posicoes: d.posicoes.map(toLink),
-			series: d.series,
-			repeticoes: d.repeticoes,
-			tempo_min: d.tempo,
-			frequencia_semanal: d.frequencia,
-			execucoes: [] as string[],
+			positions: d.positions.map(toLink),
+			sets: d.sets,
+			reps: d.reps,
+			time_min: d.time,
+			weekly_target: d.weeklyTarget,
+			sessions: [] as string[],
 			tags: ["bjj/drill"],
 		};
+		const volume = t("note.volumeValue", { sets: d.sets, reps: d.reps }) + (d.time ? ` · ${d.time} min` : "");
 		const body = [
-			`# ${d.nome}`,
+			`# ${d.name}`,
 			"",
-			`**Volume:** ${d.series} séries × ${d.repeticoes} repetições${d.tempo ? ` · ${d.tempo} min` : ""}`,
-			`**Frequência alvo:** ${d.frequencia}x por semana`,
+			`**${t("note.volume")}:** ${volume}`,
+			`**${t("note.weeklyTarget")}:** ${t("note.timesPerWeek", { n: d.weeklyTarget })}`,
 			"",
-			"## Posições trabalhadas",
-			bullets(d.posicoes.map(toLink)),
+			`## ${t("note.positionsTrained")}`,
+			bullets(d.positions.map(toLink)),
 			"",
-			"## Como fazer",
-			d.descricao || "- ",
+			`## ${t("note.howTo")}`,
+			d.description || "- ",
 			"",
-			"## Pontos de atenção",
+			`## ${t("note.attention")}`,
 			"- ",
 			"",
-			"## Variações / progressões",
+			`## ${t("note.variations")}`,
 			"- ",
 			"",
 		].join("\n");
-		return this.create(folderFor(this.settings(), "pastaDrills"), d.nome, fm, body);
+		return this.create(folderFor(this.settings(), "drillsFolder"), d.name, fm, body);
 	}
 
-	async criarMeta(m: NovaMeta): Promise<TFile> {
+	async createGoal(g: NewGoal): Promise<TFile> {
 		const fm = {
-			bjj: NOTE_KIND.meta,
-			categoria: m.categoria,
-			horizonte: m.horizonte,
-			status: "Ativa",
-			inicio: moment().format(DATE_FMT),
-			prazo: m.prazo,
-			metrica: m.metrica,
-			alvo: m.metrica === "checklist" ? 0 : m.alvo,
-			progresso: 0,
-			tags: ["bjj/meta"],
+			bjj: NOTE_KIND.goal,
+			category: g.category,
+			horizon: g.horizon,
+			status: "active",
+			start: today(),
+			deadline: g.deadline,
+			metric: g.metric,
+			target: g.metric === "checklist" ? 0 : g.target,
+			progress: 0,
+			tags: ["bjj/goal"],
 		};
-		const passos = m.passos.length ? m.passos : [""];
+		const steps = g.steps.length ? g.steps : [""];
 		const body = [
-			`# ${m.titulo}`,
+			`# ${g.title}`,
 			"",
-			"## Por que essa meta importa",
-			m.porque || "",
+			`## ${t("note.whyMatters")}`,
+			g.why || "",
 			"",
-			"## Passos",
-			passos.map((p) => `- [ ] ${p}`).join("\n"),
+			`## ${t("note.steps")}`,
+			steps.map((s) => `- [ ] ${s}`).join("\n"),
 			"",
-			"## Como vou medir",
+			`## ${t("note.howMeasure")}`,
 			"- ",
 			"",
-			"## Diário de progresso",
-			`- ${moment().format(DATE_FMT)}: meta criada`,
+			`## ${t("note.progressLog")}`,
+			`- ${today()}: ${t("note.goalCreated")}`,
 			"",
 		].join("\n");
-		return this.create(folderFor(this.settings(), "pastaMetas"), m.titulo, fm, body);
+		return this.create(folderFor(this.settings(), "goalsFolder"), g.title, fm, body);
 	}
 
-	async registrarExecucaoDrill(file: TFile, data = moment().format(DATE_FMT), notify = true) {
+	async logDrillSession(file: TFile, date = today(), notify = true) {
 		await this.app.fileManager.processFrontMatter(file, (fm) => {
-			const ex: string[] = Array.isArray(fm.execucoes) ? fm.execucoes : [];
-			ex.push(data);
-			fm.execucoes = ex;
+			const sessions: string[] = Array.isArray(fm.sessions) ? fm.sessions : [];
+			sessions.push(date);
+			fm.sessions = sessions;
 		});
-		if (notify) new Notice(`Drill "${file.basename}" registrado em ${data}.`);
+		if (notify) new Notice(t("drill.logged", { name: file.basename, date }));
 	}
 
-	async atualizarNivelPosicao(file: TFile, nivel: number) {
+	async setPositionLevel(file: TFile, level: number) {
 		await this.app.fileManager.processFrontMatter(file, (fm) => {
-			fm.nivel = nivel;
-			fm.atualizado = moment().format(DATE_FMT);
+			fm.level = level;
+			fm.updated = today();
 		});
-		new Notice(`"${file.basename}" → nível ${nivel} (${NIVEIS[nivel]}).`);
+		new Notice(t("position.levelChanged", { name: file.basename, level, label: L.level(level) }));
 	}
 
-	async incrementarMeta(file: TFile, delta = 1) {
+	async incrementGoal(file: TFile, delta = 1) {
 		await this.app.fileManager.processFrontMatter(file, (fm) => {
-			fm.progresso = (Number(fm.progresso) || 0) + delta;
+			fm.progress = (Number(fm.progress) || 0) + delta;
 		});
 	}
 
-	async definirStatusMeta(file: TFile, status: string) {
+	async setGoalStatus(file: TFile, status: string) {
 		await this.app.fileManager.processFrontMatter(file, (fm) => {
 			fm.status = status;
-			if (status === "Concluída") fm.concluida_em = moment().format(DATE_FMT);
+			if (status === "done") fm.completed = today();
 		});
-		new Notice(`Meta "${file.basename}": ${status}.`);
+		new Notice(t("goal.statusChanged", { name: file.basename, status: L.status(status) }));
 	}
 }

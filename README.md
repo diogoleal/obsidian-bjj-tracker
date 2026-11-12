@@ -1,68 +1,126 @@
-# BJJ Tracker — plugin para Obsidian
+# BJJ Tracker
 
-Registre seus **treinos**, **posições/técnicas**, **drills** e **metas** de Jiu-Jitsu como notas do Obsidian,
-e acompanhe tudo em um painel com estatísticas.
+An [Obsidian](https://obsidian.md) plugin to log your Brazilian Jiu-Jitsu **training sessions**, **positions & techniques**,
+**drills** and **goals** as regular notes, and follow your progress on a stats dashboard.
 
-## Instalação
+The interface is available in **English** and **Portuguese** (picked automatically from Obsidian's language setting).
 
-```bash
-npm install
-npm run build
-VAULT=/caminho/do/seu/vault npm run install-vault
-```
+## Features
 
-Depois, no Obsidian: **Configurações → Plugins da comunidade → ativar "BJJ Tracker"**.
-(Manualmente: copie `main.js`, `manifest.json` e `styles.css` para `<vault>/.obsidian/plugins/bjj-tracker/`.)
+- **Training log** — date, type (Gi, No-Gi, open mat, competition…), duration, intensity, academy, instructor,
+  rolls, submissions landed / times tapped, techniques worked, drills done, injuries and notes.
+- **Position library** — category, perspective (top / bottom), proficiency level from 1 (*Aware*) to 5 (*Mastered*),
+  video reference and related positions, with a note template for key details, common mistakes and follow-ups.
+- **Drills** — sets × reps, time, weekly target and a history of every session.
+- **Goals** — short / medium / long term, deadline, status and automatic progress tracking.
+- **Dashboard** — current belt and stripes, sessions this week vs. your weekly goal, weekly streak, 26-week
+  frequency heatmap, time per training type, active goals with progress bars, this week's drills, position
+  repertoire by level, positions you haven't trained in a while, most-trained techniques and recent sessions.
+- **Embeddable** — drop any part of the dashboard into a note (e.g. your daily note) with a `bjj` code block.
 
-Para desenvolver: `npm run dev` recompila a cada alteração (use o plugin *Hot Reload* para recarregar sozinho).
+Everything is stored as plain Markdown with properties (frontmatter), so you can edit notes by hand, move them
+anywhere in your vault, or query them with Dataview / Bases.
 
-## O que ele faz
+## Usage
 
-| Nota | Criada por | Pasta padrão | Campos principais |
-|---|---|---|---|
-| Treino | `Registrar treino` | `BJJ/Treinos` | data, tipo (Gi/No-Gi/…), duração, intensidade, rolas, finalizações, técnicas, drills, lesões |
-| Posição | `Nova posição / técnica` | `BJJ/Posições` | categoria, perspectiva (por cima/baixo), nível de domínio 1–5, vídeo, relacionadas |
-| Drill | `Novo drill` | `BJJ/Drills` | posições, séries × reps, tempo, frequência semanal, histórico de execuções |
-| Meta | `Nova meta` | `BJJ/Metas` | categoria, horizonte (curto/médio/longo), prazo, status, forma de medir |
+Open the dashboard from the ribbon (swords icon) or the command palette. Available commands:
 
-Cada nota é Markdown comum com propriedades (frontmatter). O campo `bjj:` identifica o tipo, então você pode
-mover as notas para qualquer pasta ou editá-las à mão.
+| Command | What it does |
+|---|---|
+| Open dashboard | Opens the stats dashboard in a new tab |
+| Log training session | Form to log a session |
+| New position / technique | Form to add a position to your library |
+| New drill | Form to create a drill |
+| New goal | Form to create a goal |
+| Log drill session (today) | Pick a drill and log a session for today |
+| Change position proficiency level | Uses the active note if it is a position |
+| Complete goal | Uses the active note if it is a goal |
 
-### Painel
-Ícone de espadas na barra lateral ou comando **BJJ Tracker: Abrir painel**. Mostra:
-- faixa e graus atuais, tempo na graduação e treinos desde então;
-- treinos na semana (vs. meta semanal), mês, ano, total de horas e **sequência de semanas** batendo a meta;
-- rolas e finalizações no mês;
-- **heatmap** das últimas 26 semanas e tempo por tipo de treino;
-- **metas ativas** com barra de progresso, prazo e botões *concluir* / *+1*;
-- **drills da semana** (feitos × alvo) com botão para registrar execução;
-- **repertório** de posições por nível e categoria, e sugestões do que **revisar**;
-- técnicas mais treinadas e últimos treinos.
+### Goal progress
 
-### Progresso das metas
-- **Checklist** — conta as tarefas `- [ ]` / `- [x]` da própria nota.
-- **Número de treinos / Horas de tatame** — calculado automaticamente a partir dos treinos entre `inicio` e `prazo`.
-- **Manual** — contador `progresso`, incrementado pelo botão *+1* do painel.
+| Metric | How progress is measured |
+|---|---|
+| Checklist | Ticked `- [x]` tasks in the goal note |
+| Number of sessions | Training notes between `start` and `deadline` (automatic) |
+| Mat hours | Sum of training `duration` between `start` and `deadline` (automatic) |
+| Manual | The `progress` counter, incremented with the dashboard's **+1** button |
 
-### Comandos
-- Abrir painel · Registrar treino · Nova posição / técnica · Novo drill · Nova meta
-- Registrar execução de drill (hoje)
-- Alterar nível de domínio de uma posição (usa a nota aberta, se for uma posição)
-- Concluir meta (usa a nota aberta, se for uma meta)
+### Dashboard in a note
 
-### Painel dentro de uma nota
-Use um bloco de código `bjj`. Vazio mostra tudo; ou liste as seções desejadas:
+An empty block renders the whole dashboard; otherwise list the sections you want:
 
 ````markdown
 ```bjj
-resumo
-metas
+summary
+goals
 drills
 ```
 ````
 
-Seções: `resumo`, `heatmap`, `metas`, `drills`, `posicoes`, `tecnicas`, `recentes`.
+Sections: `summary`, `heatmap`, `goals`, `drills`, `positions`, `techniques`, `recent`.
 
-## Configurações
-Faixa, graus e data da graduação; academia, instrutor, tipo e duração padrão do treino; meta de treinos por
-semana; nomes das pastas; abrir ou não a nota após criar.
+## Note format
+
+The `bjj` property identifies the note type. Example training note:
+
+```yaml
+---
+bjj: training
+date: 2026-11-12
+type: Gi
+duration: 90
+academy: My Academy
+instructor: Professor X
+intensity: 7
+rolls: 5
+submissions_given: 2
+submissions_received: 1
+techniques: ["[[Armbar from closed guard]]"]
+drills: ["[[Hip escapes]]"]
+injuries: ""
+tags: [bjj/training]
+---
+```
+
+| Type | Main properties |
+|---|---|
+| `training` | `date`, `type`, `duration`, `intensity`, `rolls`, `submissions_given`, `submissions_received`, `techniques`, `drills` |
+| `position` | `category`, `perspective`, `level` (1–5), `video`, `related` |
+| `drill` | `positions`, `sets`, `reps`, `time_min`, `weekly_target`, `sessions` (list of dates) |
+| `goal` | `category`, `horizon`, `status` (`active` / `paused` / `done` / `abandoned`), `start`, `deadline`, `metric`, `target`, `progress` |
+
+## Settings
+
+Belt, stripes and last promotion date; default academy, instructor, training type and duration; weekly training
+goal; folder names (default `BJJ/Training`, `BJJ/Positions`, `BJJ/Drills`, `BJJ/Goals`); whether to open notes
+after creating them.
+
+## Installation
+
+**Community plugins** (once published): Settings → Community plugins → Browse → search for "BJJ Tracker".
+
+**Manual**: download `main.js`, `manifest.json` and `styles.css` from the
+[latest release](https://github.com/diogoleal/obsidian-bjj-tracker/releases/latest) into
+`<vault>/.obsidian/plugins/bjj-tracker/`, then enable the plugin.
+
+**BRAT**: add `diogoleal/obsidian-bjj-tracker` as a beta plugin.
+
+## Development
+
+```bash
+npm install
+npm run dev                                   # rebuild on change
+npm run build                                 # type-check + production build
+VAULT=/path/to/vault npm run install-vault    # copy the build into a vault
+```
+
+### Releasing
+
+```bash
+npm version patch        # bumps package.json, manifest.json and versions.json
+git push --follow-tags   # the Release workflow builds and attaches main.js, manifest.json, styles.css
+```
+
+## License
+
+[MIT](LICENSE)

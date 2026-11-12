@@ -1,46 +1,49 @@
 import { App, PluginSettingTab, Setting, normalizePath } from "obsidian";
 import type BjjPlugin from "./main";
-import { FAIXAS, TIPOS_TREINO } from "./constants";
+import { BELTS } from "./constants";
+import { L, t } from "./i18n";
 
 export interface BjjSettings {
-	pastaRaiz: string;
-	pastaTreinos: string;
-	pastaPosicoes: string;
-	pastaDrills: string;
-	pastaMetas: string;
-	academiaPadrao: string;
-	instrutorPadrao: string;
-	tipoPadrao: string;
-	duracaoPadrao: number;
-	metaSemanal: number;
-	faixa: string;
-	graus: number;
-	dataGraduacao: string;
-	abrirAposCriar: boolean;
+	rootFolder: string;
+	trainingFolder: string;
+	positionsFolder: string;
+	drillsFolder: string;
+	goalsFolder: string;
+	defaultAcademy: string;
+	defaultInstructor: string;
+	defaultType: string;
+	defaultDuration: number;
+	weeklyGoal: number;
+	belt: string;
+	stripes: number;
+	promotionDate: string;
+	openAfterCreate: boolean;
 }
 
-export const DEFAULT_SETTINGS: BjjSettings = {
-	pastaRaiz: "BJJ",
-	pastaTreinos: "Treinos",
-	pastaPosicoes: "Posições",
-	pastaDrills: "Drills",
-	pastaMetas: "Metas",
-	academiaPadrao: "",
-	instrutorPadrao: "",
-	tipoPadrao: "Gi",
-	duracaoPadrao: 90,
-	metaSemanal: 3,
-	faixa: "Branca",
-	graus: 0,
-	dataGraduacao: "",
-	abrirAposCriar: true,
-};
+/** Defaults are built at load time so folder names follow the app language. */
+export function defaultSettings(): BjjSettings {
+	return {
+		rootFolder: "BJJ",
+		trainingFolder: t("folder.training"),
+		positionsFolder: t("folder.positions"),
+		drillsFolder: t("folder.drills"),
+		goalsFolder: t("folder.goals"),
+		defaultAcademy: "",
+		defaultInstructor: "",
+		defaultType: L.list("trainingTypes")[0],
+		defaultDuration: 90,
+		weeklyGoal: 3,
+		belt: "white",
+		stripes: 0,
+		promotionDate: "",
+		openAfterCreate: true,
+	};
+}
 
-export function folderFor(
-	s: BjjSettings,
-	key: "pastaTreinos" | "pastaPosicoes" | "pastaDrills" | "pastaMetas"
-): string {
-	return normalizePath(s.pastaRaiz ? `${s.pastaRaiz}/${s[key]}` : s[key]);
+type FolderKey = "trainingFolder" | "positionsFolder" | "drillsFolder" | "goalsFolder";
+
+export function folderFor(s: BjjSettings, key: FolderKey): string {
+	return normalizePath(s.rootFolder ? `${s.rootFolder}/${s[key]}` : s[key]);
 }
 
 export class BjjSettingTab extends PluginSettingTab {
@@ -51,112 +54,106 @@ export class BjjSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		const s = this.plugin.settings;
+		const save = () => this.plugin.saveSettings();
 		containerEl.empty();
 
-		const save = async () => {
-			await this.plugin.saveSettings();
-		};
+		new Setting(containerEl).setName(t("settings.rank")).setHeading();
 
-		new Setting(containerEl).setName("Graduação").setHeading();
-
-		new Setting(containerEl).setName("Faixa atual").addDropdown((d) => {
-			FAIXAS.forEach((f) => d.addOption(f, f));
-			d.setValue(s.faixa).onChange(async (v) => {
-				s.faixa = v;
+		new Setting(containerEl).setName(t("settings.belt")).addDropdown((d) => {
+			BELTS.forEach((b) => d.addOption(b, L.belt(b)));
+			d.setValue(s.belt).onChange(async (v) => {
+				s.belt = v;
 				await save();
 			});
 		});
 
-		new Setting(containerEl).setName("Graus").addSlider((sl) =>
+		new Setting(containerEl).setName(t("settings.stripes")).addSlider((sl) =>
 			sl
 				.setLimits(0, 4, 1)
-				.setValue(s.graus)
+				.setValue(s.stripes)
 				.setDynamicTooltip()
 				.onChange(async (v) => {
-					s.graus = v;
+					s.stripes = v;
 					await save();
 				})
 		);
 
 		new Setting(containerEl)
-			.setName("Data da última graduação")
-			.setDesc("Usada para mostrar há quanto tempo você está na faixa/grau atual.")
-			.addText((t) => {
-				t.inputEl.type = "date";
-				t.setValue(s.dataGraduacao).onChange(async (v) => {
-					s.dataGraduacao = v;
+			.setName(t("settings.promotionDate"))
+			.setDesc(t("settings.promotionDateDesc"))
+			.addText((tx) => {
+				tx.inputEl.type = "date";
+				tx.setValue(s.promotionDate).onChange(async (v) => {
+					s.promotionDate = v;
 					await save();
 				});
 			});
 
-		new Setting(containerEl).setName("Treinos").setHeading();
+		new Setting(containerEl).setName(t("settings.training")).setHeading();
 
-		new Setting(containerEl).setName("Academia padrão").addText((t) =>
-			t.setValue(s.academiaPadrao).onChange(async (v) => {
-				s.academiaPadrao = v;
+		new Setting(containerEl).setName(t("settings.academy")).addText((tx) =>
+			tx.setValue(s.defaultAcademy).onChange(async (v) => {
+				s.defaultAcademy = v;
 				await save();
 			})
 		);
 
-		new Setting(containerEl).setName("Instrutor padrão").addText((t) =>
-			t.setValue(s.instrutorPadrao).onChange(async (v) => {
-				s.instrutorPadrao = v;
+		new Setting(containerEl).setName(t("settings.instructor")).addText((tx) =>
+			tx.setValue(s.defaultInstructor).onChange(async (v) => {
+				s.defaultInstructor = v;
 				await save();
 			})
 		);
 
-		new Setting(containerEl).setName("Tipo de treino padrão").addDropdown((d) => {
-			TIPOS_TREINO.forEach((t) => d.addOption(t, t));
-			d.setValue(s.tipoPadrao).onChange(async (v) => {
-				s.tipoPadrao = v;
+		new Setting(containerEl).setName(t("settings.type")).addDropdown((d) => {
+			const types = L.list("trainingTypes");
+			if (!types.includes(s.defaultType)) d.addOption(s.defaultType, s.defaultType);
+			types.forEach((x) => d.addOption(x, x));
+			d.setValue(s.defaultType).onChange(async (v) => {
+				s.defaultType = v;
 				await save();
 			});
 		});
 
-		new Setting(containerEl).setName("Duração padrão (min)").addText((t) => {
-			t.inputEl.type = "number";
-			t.setValue(String(s.duracaoPadrao)).onChange(async (v) => {
-				s.duracaoPadrao = Number(v) || 0;
+		new Setting(containerEl).setName(t("settings.duration")).addText((tx) => {
+			tx.inputEl.type = "number";
+			tx.setValue(String(s.defaultDuration)).onChange(async (v) => {
+				s.defaultDuration = Number(v) || 0;
 				await save();
 			});
 		});
 
 		new Setting(containerEl)
-			.setName("Meta de treinos por semana")
-			.setDesc("Usada no painel e para calcular a sequência de semanas.")
-			.addText((t) => {
-				t.inputEl.type = "number";
-				t.setValue(String(s.metaSemanal)).onChange(async (v) => {
-					s.metaSemanal = Math.max(1, Number(v) || 1);
+			.setName(t("settings.weeklyGoal"))
+			.setDesc(t("settings.weeklyGoalDesc"))
+			.addText((tx) => {
+				tx.inputEl.type = "number";
+				tx.setValue(String(s.weeklyGoal)).onChange(async (v) => {
+					s.weeklyGoal = Math.max(1, Number(v) || 1);
 					await save();
 				});
 			});
 
-		new Setting(containerEl).setName("Pastas").setHeading();
+		new Setting(containerEl).setName(t("settings.folders")).setHeading();
 
-		const pasta = (
-			name: string,
-			key: "pastaRaiz" | "pastaTreinos" | "pastaPosicoes" | "pastaDrills" | "pastaMetas"
-		) =>
-			new Setting(containerEl).setName(name).addText((t) =>
-				t.setValue(s[key]).onChange(async (v) => {
+		const folder = (name: string, key: "rootFolder" | FolderKey) =>
+			new Setting(containerEl).setName(name).addText((tx) =>
+				tx.setValue(s[key]).onChange(async (v) => {
 					s[key] = v.trim();
 					await save();
 				})
 			);
-		pasta("Pasta raiz", "pastaRaiz");
-		pasta("Subpasta de treinos", "pastaTreinos");
-		pasta("Subpasta de posições", "pastaPosicoes");
-		pasta("Subpasta de drills", "pastaDrills");
-		pasta("Subpasta de metas", "pastaMetas");
+		folder(t("settings.rootFolder"), "rootFolder");
+		folder(t("settings.trainingFolder"), "trainingFolder");
+		folder(t("settings.positionsFolder"), "positionsFolder");
+		folder(t("settings.drillsFolder"), "drillsFolder");
+		folder(t("settings.goalsFolder"), "goalsFolder");
 
-		new Setting(containerEl)
-			.setName("Abrir nota após criar")
-			.addToggle((t) =>
-				t.setValue(s.abrirAposCriar).onChange(async (v) => {
-					s.abrirAposCriar = v;
-					await save();
-				})
-			);
+		new Setting(containerEl).setName(t("settings.openAfterCreate")).addToggle((tg) =>
+			tg.setValue(s.openAfterCreate).onChange(async (v) => {
+				s.openAfterCreate = v;
+				await save();
+			})
+		);
 	}
 }

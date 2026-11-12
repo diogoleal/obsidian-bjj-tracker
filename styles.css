@@ -17,7 +17,7 @@
 .bjj-link { cursor: pointer; text-decoration: none; }
 .bjj-link:hover { text-decoration: underline; }
 
-/* Header + faixa */
+/* Header + belt */
 .bjj-header {
 	display: flex;
 	align-items: center;
@@ -74,7 +74,7 @@
 .bjj-card-sub { color: var(--text-faint); font-size: var(--font-ui-smaller); margin-top: 2px; }
 .bjj-card .bjj-bar { margin-top: var(--size-4-2); }
 
-/* Seções */
+/* Sections */
 .bjj-section {
 	background: var(--background-primary-alt);
 	border: 1px solid var(--background-modifier-border);
@@ -91,7 +91,7 @@
 }
 .bjj-section-title svg { width: 16px; height: 16px; color: var(--bjj-accent); }
 
-/* Barras */
+/* Progress bars */
 .bjj-bar {
 	flex: 1;
 	height: 8px;
@@ -126,7 +126,7 @@
 .bjj-heat-cell.is-future { opacity: 0.3; }
 .bjj-types { margin-top: var(--size-4-3); }
 
-/* Metas */
+/* Goals */
 .bjj-goal { padding: var(--size-4-2) 0; border-bottom: 1px solid var(--background-modifier-border); }
 .bjj-goal:last-of-type { border-bottom: none; }
 .bjj-goal-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
@@ -146,7 +146,7 @@
 .bjj-deadline.is-soon { color: var(--color-orange); }
 .bjj-deadline.is-late { color: var(--color-red); font-weight: var(--font-semibold); }
 
-/* Posições */
+/* Positions */
 .bjj-levels {
 	display: grid;
 	grid-template-columns: repeat(5, 1fr);
@@ -170,14 +170,13 @@
 .bjj-dots.lvl-5 { color: var(--color-green); }
 .bjj-review { margin-top: var(--size-4-3); }
 
-/* Tabela */
+/* Table */
 .bjj-table { width: 100%; border-collapse: collapse; font-size: var(--font-ui-small); }
 .bjj-table th { text-align: left; color: var(--text-muted); font-weight: var(--font-medium); }
 .bjj-table th, .bjj-table td { padding: 4px 8px; border-bottom: 1px solid var(--background-modifier-border); }
 
-/* Modais */
+/* Modals */
 .bjj-modal { width: min(640px, 95vw); }
-.bjj-modal h4 { margin: var(--size-4-4) 0 0; }
 .bjj-chip-setting .setting-item-control { flex-direction: column; align-items: stretch; gap: 6px; }
 .bjj-chip-setting input { width: 100%; }
 .bjj-chips { display: flex; flex-wrap: wrap; gap: 4px; }
